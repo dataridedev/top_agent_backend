@@ -1,0 +1,2012 @@
+openapi: 3.0.3
+
+info:
+  title: TopAgents API
+  description: |
+    ## TopAgents.ca — Real Estate Agent Review & Referral Platform
+
+    ### Authentication
+    Protected endpoints require a `Bearer` JWT token in the `Authorization` header.
+    Get tokens via `POST /api/v1/auth/login`. Refresh via `POST /api/v1/auth/refresh`.
+
+    ### Rate Limiting
+    - General: 100 req / 15 min
+    - Auth endpoints: 10 req / 15 min
+    - Search: 60 req / 1 min
+
+    ### Pagination
+    All list endpoints accept `?page=1&limit=20`.
+    Response includes `meta: { total, page, limit, totalPages, hasNext, hasPrev }`.
+
+    ### Response Envelope
+    ```json
+    { "success": true, "data": { ... } }
+    ```
+    ```json
+    { "success": false, "error": { "code": 422, "message": "Validation failed", "details": [] } }
+    ```
+  version: 1.0.0
+  contact:
+    name: TopAgents Dev Team
+    email: dev@topagents.ca
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+  - url: https://api.topagents.ca/api/v1
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentication, registration, and token management
+  - name: Agents
+    description: Agent profiles, search, claim, and statistics
+  - name: Reviews
+    description: Review submission, replies, import, and moderation
+  - name: Referrals
+    description: Peer-to-peer referral marketplace between agents
+  - name: Leads
+    description: Consumer lead capture and agent lead pipeline
+  - name: Points & Tiers
+    description: Points engine, tier progress, and platform connections
+  - name: Cities
+    description: BC city directory and SEO landing page data
+  - name: Admin
+    description: Internal admin panel (admin role only)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+          enum: [consumer, agent, brokerage, admin]
+        avatar_url:
+          type: string
+          nullable: true
+        is_verified:
+          type: boolean
+        agent_id:
+          type: integer
+          nullable: true
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+        license_number:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        brokerage:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        photo_url:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        languages:
+          type: array
+          items:
+            type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        areas_served:
+          type: array
+          items:
+            type: string
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        current_tier:
+          type: string
+          enum: [BRONZE, SILVER, GOLD, PLATINUM, DIAMOND, LUMINARY]
+        total_points:
+          type: integer
+        year_points:
+          type: integer
+        avg_rating:
+          type: number
+          format: float
+        total_reviews:
+          type: integer
+        connected_platforms:
+          type: integer
+        completed_referrals:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AgentCreate:
+      type: object
+      required: [license_number, first_name, last_name]
+      properties:
+        license_number:
+          type: string
+          maxLength: 50
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        brokerage:
+          type: string
+        bio:
+          type: string
+          maxLength: 2000
+        website:
+          type: string
+          format: uri
+        languages:
+          type: array
+          items:
+            type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        areas_served:
+          type: array
+          items:
+            type: string
+
+    AgentUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        brokerage:
+          type: string
+        bio:
+          type: string
+          maxLength: 2000
+        photo_url:
+          type: string
+        website:
+          type: string
+          format: uri
+        languages:
+          type: array
+          items:
+            type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        areas_served:
+          type: array
+          items:
+            type: string
+        lead_notifications:
+          type: boolean
+        referral_notifications:
+          type: boolean
+        marketing_emails:
+          type: boolean
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        agent_id:
+          type: integer
+        platform:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: string
+          nullable: true
+        text:
+          type: string
+          nullable: true
+        reviewer_name:
+          type: string
+        verified:
+          type: boolean
+        transaction_verified:
+          type: boolean
+        review_date:
+          type: string
+          format: date
+        agent_responded:
+          type: boolean
+        agent_response:
+          type: string
+          nullable: true
+        response_date:
+          type: string
+          format: date-time
+          nullable: true
+        property_address:
+          type: string
+          nullable: true
+        transaction_type:
+          type: string
+          nullable: true
+        rating_communication:
+          type: integer
+          nullable: true
+        rating_negotiation:
+          type: integer
+          nullable: true
+        rating_market_knowledge:
+          type: integer
+          nullable: true
+        rating_responsiveness:
+          type: integer
+          nullable: true
+        rating_pricing:
+          type: integer
+          nullable: true
+        rating_paperwork:
+          type: integer
+          nullable: true
+        rating_availability:
+          type: integer
+          nullable: true
+        rating_recommendation:
+          type: integer
+          nullable: true
+        imported_at:
+          type: string
+          format: date-time
+
+    ReviewCreate:
+      type: object
+      required: [agent_id, rating, reviewer_name, reviewer_email]
+      properties:
+        agent_id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        reviewer_name:
+          type: string
+          maxLength: 100
+        reviewer_email:
+          type: string
+          format: email
+        title:
+          type: string
+          maxLength: 200
+        text:
+          type: string
+          maxLength: 5000
+        platform:
+          type: string
+          enum: [native, google, rew, ratemyagent, ratemyagentcom, facebook, zillow]
+          default: native
+        platform_review_id:
+          type: string
+        platform_url:
+          type: string
+          format: uri
+        property_address:
+          type: string
+        transaction_type:
+          type: string
+          enum: [buy, sell, rent]
+        review_date:
+          type: string
+          format: date
+        rating_communication:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_negotiation:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_market_knowledge:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_responsiveness:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_pricing:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_paperwork:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_availability:
+          type: integer
+          minimum: 1
+          maximum: 5
+        rating_recommendation:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    Referral:
+      type: object
+      properties:
+        id:
+          type: integer
+        sender_id:
+          type: integer
+        receiver_id:
+          type: integer
+        client_name:
+          type: string
+        property_type:
+          type: string
+        transaction_type:
+          type: string
+        budget_min:
+          type: integer
+          nullable: true
+        budget_max:
+          type: integer
+          nullable: true
+        location:
+          type: string
+        timeline:
+          type: string
+          nullable: true
+        referral_fee_percent:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, DECLINED, IN_PROGRESS, COMPLETED, CANCELLED]
+        message:
+          type: string
+          nullable: true
+        response_message:
+          type: string
+          nullable: true
+        sale_price:
+          type: integer
+          nullable: true
+        commission_amount:
+          type: integer
+          nullable: true
+        referral_fee_paid:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        responded_at:
+          type: string
+          format: date-time
+          nullable: true
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ReferralCreate:
+      type: object
+      required: [receiver_id, client_name, transaction_type, location]
+      properties:
+        receiver_id:
+          type: integer
+        client_name:
+          type: string
+          maxLength: 200
+        client_email:
+          type: string
+          format: email
+        client_phone:
+          type: string
+        property_type:
+          type: string
+          enum: [residential, commercial, investment, land]
+        transaction_type:
+          type: string
+          enum: [buy, sell, rent]
+        budget_min:
+          type: integer
+        budget_max:
+          type: integer
+        location:
+          type: string
+          maxLength: 200
+        timeline:
+          type: string
+        notes:
+          type: string
+        referral_fee_percent:
+          type: number
+          minimum: 0
+          maximum: 50
+        message:
+          type: string
+
+    Lead:
+      type: object
+      properties:
+        id:
+          type: integer
+        agent_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        looking_for:
+          type: string
+          enum: [buy, sell, rent, invest]
+        property_type:
+          type: string
+          nullable: true
+        budget_min:
+          type: integer
+          nullable: true
+        budget_max:
+          type: integer
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [NEW, CONTACTED, QUALIFIED, CONVERTED, CLOSED]
+        source:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        contacted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    LeadCreate:
+      type: object
+      required: [agent_id, name, looking_for]
+      properties:
+        agent_id:
+          type: integer
+        name:
+          type: string
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        message:
+          type: string
+        looking_for:
+          type: string
+          enum: [buy, sell, rent, invest]
+        property_type:
+          type: string
+        budget_min:
+          type: integer
+        budget_max:
+          type: integer
+        location:
+          type: string
+        timeline:
+          type: string
+        source:
+          type: string
+          enum: [topagents_search, agent_profile, city_page, quiz, direct]
+
+    Tier:
+      type: object
+      properties:
+        tier_name:
+          type: string
+        min_points:
+          type: integer
+        max_points:
+          type: integer
+          nullable: true
+        tier_order:
+          type: integer
+        min_reviews:
+          type: integer
+        min_avg_rating:
+          type: number
+        min_platforms_connected:
+          type: integer
+        color_hex:
+          type: string
+
+    City:
+      type: object
+      properties:
+        id:
+          type: integer
+        city_name:
+          type: string
+        region:
+          type: string
+        province:
+          type: string
+        slug:
+          type: string
+        population:
+          type: integer
+          nullable: true
+        avg_home_price:
+          type: integer
+          nullable: true
+        total_agents:
+          type: integer
+        seo_title:
+          type: string
+          nullable: true
+        seo_description:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        top_agents:
+          type: array
+          items:
+            type: object
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Insufficient role permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+paths:
+
+  # ─── AUTH ──────────────────────────────────────────────────────────────────
+
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, first_name, last_name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: jane@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: Secret123
+                first_name:
+                  type: string
+                  example: Jane
+                last_name:
+                  type: string
+                  example: Smith
+                role:
+                  type: string
+                  enum: [consumer, agent, brokerage]
+                  default: consumer
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      message:
+                        type: string
+        '409':
+          description: Email already registered
+        '422':
+          description: Validation error
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: jane@example.com
+                password:
+                  type: string
+                  example: Secret123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and get a new access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New tokens issued
+        '401':
+          description: Invalid or expired refresh token
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /auth/verify-email/{token}:
+    get:
+      tags: [Auth]
+      summary: Verify email address via token
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email verified
+        '400':
+          description: Invalid or expired token
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (always 200 to avoid email enumeration)
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password using token from email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password reset successfully
+        '400':
+          description: Invalid or expired token
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/change-password:
+    put:
+      tags: [Auth]
+      summary: Change password for the authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password changed
+        '401':
+          description: Incorrect current password
+
+  # ─── AGENTS ────────────────────────────────────────────────────────────────
+
+  /agents:
+    get:
+      tags: [Agents]
+      summary: Search and filter agents
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search by name or brokerage
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: province
+          schema:
+            type: string
+        - in: query
+          name: min_rating
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - in: query
+          name: tier
+          schema:
+            type: string
+            enum: [BRONZE, SILVER, GOLD, PLATINUM, DIAMOND, LUMINARY]
+        - in: query
+          name: specialties
+          schema:
+            type: string
+          description: Comma-separated list
+        - in: query
+          name: languages
+          schema:
+            type: string
+          description: Comma-separated list
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [rating, reviews, recent, points]
+            default: rating
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags: [Agents]
+      summary: Create agent profile (admin or bulk seed)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentCreate'
+      responses:
+        '201':
+          description: Agent created
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: License number already exists
+
+  /agents/{agentId}:
+    get:
+      tags: [Agents]
+      summary: Get full agent profile by ID
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Agent profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Agent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Agents]
+      summary: Update agent profile (owner or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentUpdate'
+      responses:
+        '200':
+          description: Updated agent
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /agents/{agentId}/claim:
+    post:
+      tags: [Agents]
+      summary: Claim an unclaimed agent profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [license_number]
+              properties:
+                license_number:
+                  type: string
+                  example: REA-123456
+      responses:
+        '200':
+          description: Profile claimed successfully
+        '400':
+          description: License number does not match
+        '409':
+          description: Profile already claimed
+
+  /agents/{agentId}/stats:
+    get:
+      tags: [Agents]
+      summary: Get agent performance statistics
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Review stats, referral counts, tier and points summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      reviews:
+                        type: object
+                        properties:
+                          total_reviews:
+                            type: integer
+                          avg_rating:
+                            type: number
+                          five_star:
+                            type: integer
+                          four_star:
+                            type: integer
+                          three_star:
+                            type: integer
+                          two_star:
+                            type: integer
+                          one_star:
+                            type: integer
+                          avg_communication:
+                            type: number
+                          avg_negotiation:
+                            type: number
+                          avg_market_knowledge:
+                            type: number
+                          avg_responsiveness:
+                            type: number
+                      referrals:
+                        type: object
+                        properties:
+                          completed:
+                            type: integer
+                          sent_completed:
+                            type: integer
+                          received_completed:
+                            type: integer
+                      points:
+                        type: object
+                        properties:
+                          total_points:
+                            type: integer
+                          year_points:
+                            type: integer
+                          current_tier:
+                            type: string
+
+  /agents/{agentId}/reviews:
+    get:
+      tags: [Agents]
+      summary: Get paginated reviews for an agent
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: rating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - in: query
+          name: platform
+          schema:
+            type: string
+        - in: query
+          name: verified
+          schema:
+            type: boolean
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [recent, highest, lowest]
+            default: recent
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /agents/{agentId}/points:
+    get:
+      tags: [Points & Tiers]
+      summary: Get point transaction history for an agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: year
+          schema:
+            type: integer
+            example: 2026
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated point transactions with breakdown by action type
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /agents/{agentId}/tier:
+    get:
+      tags: [Points & Tiers]
+      summary: Get agent tier progress and all tier thresholds
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Current tier, year_points, next tier, and all tier definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      current_tier:
+                        type: string
+                      year_points:
+                        type: integer
+                      total_points:
+                        type: integer
+                      next_tier:
+                        $ref: '#/components/schemas/Tier'
+                      points_to_next:
+                        type: integer
+                      all_tiers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tier'
+
+  /agents/{agentId}/connections:
+    get:
+      tags: [Points & Tiers]
+      summary: List connected review platforms for an agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Array of platform connections with sync status
+
+    post:
+      tags: [Points & Tiers]
+      summary: Connect a review platform (awards 75pts first, 35pts each additional)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform]
+              properties:
+                platform:
+                  type: string
+                  enum: [google, rew, ratemyagent, ratemyagentcom, facebook, zillow, yelp]
+                platform_account_id:
+                  type: string
+                credentials:
+                  type: object
+                  description: OAuth tokens — stored encrypted in JSONB
+      responses:
+        '200':
+          description: Platform connected and points awarded
+
+  /agents/{agentId}/connections/{platform}:
+    delete:
+      tags: [Points & Tiers]
+      summary: Disconnect a review platform
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: platform
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Platform disconnected
+
+  # ─── REVIEWS ───────────────────────────────────────────────────────────────
+
+  /reviews:
+    post:
+      tags: [Reviews]
+      summary: Submit a new review for an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreate'
+      responses:
+        '201':
+          description: Review created (pending moderation for native reviews)
+        '404':
+          description: Agent not found
+        '409':
+          description: Duplicate review
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /reviews/import:
+    post:
+      tags: [Reviews]
+      summary: Bulk import reviews from an external platform
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, reviews]
+              properties:
+                platform:
+                  type: string
+                  enum: [google, rew, ratemyagent, ratemyagentcom, facebook, zillow]
+                reviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ReviewCreate'
+      responses:
+        '200':
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      imported:
+                        type: integer
+                      skipped:
+                        type: integer
+                      total:
+                        type: integer
+
+  /reviews/{reviewId}:
+    get:
+      tags: [Reviews]
+      summary: Get a single review by ID
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Review object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Review'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reviews/{reviewId}/reply:
+    post:
+      tags: [Reviews]
+      summary: Agent replies to a review (awards 10 points)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response]
+              properties:
+                response:
+                  type: string
+                  maxLength: 500
+                  example: Thank you for your kind words!
+      responses:
+        '200':
+          description: Reply saved and 10 points awarded
+        '403':
+          description: You do not own this agent profile
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reviews/{reviewId}/report:
+    post:
+      tags: [Reviews]
+      summary: Report a review for moderation
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  enum: [fake, inappropriate, wrong_person, spam, other]
+                description:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Review reported for moderation
+
+  /reviews/{reviewId}/verify:
+    patch:
+      tags: [Reviews]
+      summary: Admin verifies a native review and awards 50 points to the agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Review verified and points awarded
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ─── REFERRALS ─────────────────────────────────────────────────────────────
+
+  /referrals:
+    get:
+      tags: [Referrals]
+      summary: List referrals for the authenticated agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: direction
+          schema:
+            type: string
+            enum: [sent, received, all]
+            default: all
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, ACCEPTED, DECLINED, IN_PROGRESS, COMPLETED, CANCELLED]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated referrals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Referral'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags: [Referrals]
+      summary: Send a new referral to another agent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReferralCreate'
+      responses:
+        '201':
+          description: Referral created with PENDING status
+        '400':
+          description: Cannot refer to yourself
+        '404':
+          description: One or both agents not found
+
+  /referrals/{referralId}:
+    get:
+      tags: [Referrals]
+      summary: Get referral details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: referralId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Referral with sender and receiver info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Referral'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /referrals/{referralId}/respond:
+    patch:
+      tags: [Referrals]
+      summary: Accept, decline, or counter-offer a referral
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: referralId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [accept, decline, counter]
+                response_message:
+                  type: string
+                counter_fee_percent:
+                  type: number
+                  description: Required when action is counter
+      responses:
+        '200':
+          description: Referral status updated
+        '400':
+          description: Already responded or invalid status transition
+
+  /referrals/{referralId}/complete:
+    patch:
+      tags: [Referrals]
+      summary: Mark referral as completed — awards 80 points to both agents
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: referralId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sale_price, commission_amount, referral_fee_paid]
+              properties:
+                sale_price:
+                  type: integer
+                  description: Final sale price in cents
+                  example: 85000000
+                commission_amount:
+                  type: integer
+                  description: Total commission in cents
+                  example: 2125000
+                referral_fee_paid:
+                  type: integer
+                  description: Referral fee paid in cents
+                  example: 531250
+      responses:
+        '200':
+          description: Referral completed — 80 points awarded to both agents
+
+  # ─── LEADS ─────────────────────────────────────────────────────────────────
+
+  /leads:
+    post:
+      tags: [Leads]
+      summary: Submit a lead — consumer contacts an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadCreate'
+      responses:
+        '201':
+          description: Lead created and agent notified
+        '404':
+          description: Agent not found
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags: [Leads]
+      summary: List leads for the authenticated agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [NEW, CONTACTED, QUALIFIED, CONVERTED, CLOSED]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lead'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /leads/{leadId}/status:
+    patch:
+      tags: [Leads]
+      summary: Update lead pipeline status — awards points for fast first response
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [NEW, CONTACTED, QUALIFIED, CONVERTED, CLOSED]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Status updated. 20pts if responded within 1hr, 10pts within 2hr.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── CITIES ────────────────────────────────────────────────────────────────
+
+  /cities:
+    get:
+      tags: [Cities]
+      summary: List all BC cities with agent counts
+      parameters:
+        - in: query
+          name: province
+          schema:
+            type: string
+            default: BC
+        - in: query
+          name: region
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Paginated city list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/City'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /cities/{slug}:
+    get:
+      tags: [Cities]
+      summary: Get city landing page data with top 6 agents
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+          example: burnaby
+      responses:
+        '200':
+          description: City data including SEO fields and top agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/City'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── ADMIN ─────────────────────────────────────────────────────────────────
+
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Platform KPI overview
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Counts of agents, reviews, users, leads, referrals, flagged reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      agents:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          claimed:
+                            type: integer
+                      reviews:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          verified:
+                            type: integer
+                      users:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          agents:
+                            type: integer
+                      leads:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          new_leads:
+                            type: integer
+                      referrals:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          completed:
+                            type: integer
+                      flagged_reviews:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+
+  /admin/agents:
+    get:
+      tags: [Admin]
+      summary: List all agents including unclaimed profiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [claimed, unclaimed, all]
+            default: all
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated full agent list
+
+  /admin/reviews/flagged:
+    get:
+      tags: [Admin]
+      summary: Get flagged reviews pending moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated flagged review reports
+
+  /admin/agents/{agentId}/suspend:
+    patch:
+      tags: [Admin]
+      summary: Suspend or reactivate an agent profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [suspended]
+              properties:
+                suspended:
+                  type: boolean
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Agent suspended or reactivated
+
+  /admin/tiers/recalculate:
+    post:
+      tags: [Admin]
+      summary: Manually trigger nightly tier recalculation for all agents
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tier recalculation complete
