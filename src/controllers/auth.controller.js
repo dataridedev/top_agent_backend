@@ -18,6 +18,16 @@ const login = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const socialLogin = async (req, res) => {
+    try {
+        console.log("authController socialLogin ::::");
+        const userDoc = req.body;
+        const response = await authService.socialAuth(userDoc);
+     success(res, response);
+    } catch (error) {next(err); }
+};
+
+
 const refresh = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
@@ -77,4 +87,4 @@ const getMe = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { signup, login, refresh, logout, verifyEmail, forgotPassword, resetPassword, changePassword, getMe };
+module.exports = { signup, login, refresh, logout, verifyEmail, forgotPassword, resetPassword, changePassword, getMe,socialLogin}

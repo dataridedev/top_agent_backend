@@ -7,7 +7,7 @@ const { pagination }    = require('../middleware/pagination');
 const { searchLimiter } = require('../middleware/rateLimiter');
 const {
   createAgentRules, updateAgentRules, searchAgentRules,
-  agentIdParam, claimAgentRules,
+  agentIdParam, claimAgentRules,AllAgentRules
 } = require('../validators/agent.validators');
 const { listReviewsQuery } = require('../validators/review.validators');
 
@@ -71,6 +71,23 @@ router.get('/',
 
 /**
  * @swagger
+ * /agents/getAllAgent:
+ *   get:
+ *     summary: Get all agent profiles
+ *     tags: [Agents]
+ *     responses:
+ *       200:
+ *         description: List of all agent profiles
+ */
+router.get(
+  '/getAllAgent',searchLimiter,AllAgentRules,validate,
+  ctrl.getAllAgent
+);
+
+
+
+/**
+ * @swagger
  * /agents:
  *   post:
  *     summary: Create agent profile (admin / bulk seed)
@@ -115,6 +132,31 @@ router.post('/',
 router.get('/:agentId',
   agentIdParam, validate,
   ctrl.getAgent
+);
+
+/**
+ * @swagger
+  * /agents/details/:{agentId}:
+ *   get:
+ *     summary: Get full agent profile by ID
+ *     tags: [Agents]
+ *     parameters:
+ *       - in: path
+ *         name: agentId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Agent profile
+ *       404:
+ *         description: Agent not found
+ */
+router.get(
+  '/details/:agentId',
+  searchLimiter,
+  agentIdParam,
+  validate,
+  ctrl.getAgentDetails
 );
 
 /**

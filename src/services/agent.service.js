@@ -245,7 +245,288 @@ const recalculateTiers = async () => {
   return { message: 'Tier recalculation complete' };
 };
 
+
+// ------------------------------------------
+// const getAllAgentService = async (
+//   {
+//     searchkey
+//   },
+//   { page = 1, limit = 20 } = {}
+// ) => {
+
+//   const conditions = [];
+//   const params = [];
+//   let p = 1;
+
+//   const safeLimit = Number(limit) || 20;
+//   const safeOffset = (Number(page) - 1) * safeLimit;
+
+//   // ===============================
+//   // 🔥 SEARCH
+//   // ===============================
+//   const cleanSearch = searchkey?.trim();
+//   if (cleanSearch) {
+//     conditions.push(`
+//       (
+//         a.first_name ILIKE $${p}
+//         OR a.last_name ILIKE $${p}
+//         OR a.brokerage ILIKE $${p}
+//         OR EXISTS (
+//           SELECT 1 FROM unnest(COALESCE(a.areas_served, '{}')) city
+//           WHERE city ILIKE $${p}
+//         )
+//         OR EXISTS (
+//           SELECT 1 FROM unnest(COALESCE(a.specialties, '{}')) sp
+//           WHERE sp ILIKE $${p}
+//         )
+//       )
+//     `);
+
+//     params.push(`%${cleanSearch}%`);
+//     p++;
+//   }
+
+//   // ===============================
+//   // WHERE
+//   // ===============================
+//   const where = conditions.length
+//     ? `WHERE ${conditions.join(' AND ')}`
+//     : '';
+
+//   // ===============================
+//   // MAIN QUERY
+//   // ===============================
+//   const dataSql = `
+//     SELECT 
+//       a.id,
+//       a.license_number,
+//       a.first_name,
+//       a.last_name,
+//       a.email,
+//       a.phone,
+//       a.photo_url,
+//       a.website,
+//       a.languages,
+//       a.specialties,
+//       a.areas_served,
+//       a.verified_at,
+//       a.last_active,
+//       a.avg_rating,
+//       a.total_reviews,
+//       a.lead_notifications,
+//       a.marketing_emails
+//     FROM agents a
+//     ${where}
+//     LIMIT $${p} OFFSET $${p + 1}
+//   `;
+
+//   const countSql = `
+//     SELECT COUNT(*) 
+//     FROM agents a 
+//     ${where}
+//   `;
+
+//   const [countRes, dataRes] = await Promise.all([
+//     query(countSql, params),
+//     query(dataSql, [...params, safeLimit, safeOffset]),
+//   ]);
+
+//   return {
+//     success: true,
+//     agents: dataRes.rows,
+//     total: parseInt(countRes.rows[0].count, 10),
+//     page,
+//     limit: safeLimit
+//   };
+// };
+  
+const getAllAgentService = async (
+  { searchKey },
+  { page = 1, limit = 20 } = {}
+) => {
+
+  const conditions = [];
+  const params = [];
+  let p = 1;
+
+  const safeLimit = Number(limit) || 20;
+  const safeOffset = (Number(page) - 1) * safeLimit;
+
+  // ===============================
+  // 🔥 CLEAN SEARCH INPUT
+  // ===============================
+  const cleanSearch = searchKey
+    ?.trim()
+    .replace(/\s+/g, ' ');
+
+  // ===============================
+  // 🔥 SEARCH LOGIC (SIMPLIFIED & CORRECT)
+  // ===============================
+  if (cleanSearch) {
+
+    conditions.push(`
+      (
+        -- ✅ name search
+        a.first_name ILIKE $${p}
+        OR a.last_name ILIKE $${p}
+        OR (a.first_name || ' ' || a.last_name) ILIKE $${p}
+        OR (a.last_name || ' ' || a.first_name) ILIKE $${p}
+
+        -- ✅ brokerage
+        OR a.brokerage ILIKE $${p}
+
+        -- ✅ areas_served (ARRAY SEARCH)
+        OR EXISTS (
+          SELECT 1 
+          FROM unnest(COALESCE(a.areas_served, '{}')) AS area
+          WHERE area ILIKE $${p}
+        )
+
+        -- ✅ specialties (ARRAY SEARCH)
+        OR EXISTS (
+          SELECT 1 
+          FROM unnest(COALESCE(a.specialties, '{}')) AS sp
+          WHERE sp ILIKE $${p}
+        )
+      )
+    `);
+
+    params.push(`%${cleanSearch}%`);
+    p++;
+  }
+
+  // ===============================
+  // WHERE
+  // ===============================
+  const where = conditions.length
+    ? `WHERE ${conditions.join(' AND ')}`
+    : '';
+
+  // ===============================
+  // MAIN QUERY
+  // ===============================
+  const dataSql = `
+    SELECT 
+      a.id,
+      a.license_number,
+      a.first_name,
+      a.last_name,
+      a.email,
+      a.phone,
+      a.photo_url,
+      a.website,
+      a.languages,
+      a.specialties,
+      a.areas_served,
+      a.verified_at,
+      a.last_active,
+      a.avg_rating,
+      a.total_reviews,
+      a.lead_notifications,
+      a.marketing_emails
+    FROM agents a
+    ${where}
+    ORDER BY a.id DESC
+    LIMIT $${p} OFFSET $${p + 1}
+  `;
+
+  const countSql = `
+    SELECT COUNT(*) 
+    FROM agents a 
+    ${where}
+  `;
+
+  // ===============================
+  // EXECUTION
+  // ===============================
+  const [countRes, dataRes] = await Promise.all([
+    query(countSql, params),
+    query(dataSql, [...params, safeLimit, safeOffset]),
+  ]);
+
+  return {
+    success: true,
+    agents: dataRes.rows,
+    total: parseInt(countRes.rows[0].count, 10),
+    page: Number(page),
+    limit: safeLimit
+  };
+};
+
+const getAllAgentDetailsService = async (agentId) => {
+  console.log('Fetching all agents from service');
+
+  const { rows } = await query(
+    `SELECT 
+      a.*,
+      COALESCE(
+          jsonb_agg(
+              DISTINCT jsonb_build_object(
+                  'property_title', ap.property_title,
+                  'property_address', ap.property_address,
+                  'property_type', ap.property_type,
+                  'status', ap.status,
+                  'bedrooms', ap.bedrooms,
+                  'bathrooms', ap.bathrooms,
+                  'listing_price', ap.listing_price,
+                  'sold_price', ap.sold_price,
+                  'listed_date', ap.listed_date,
+                  'image_urls', ap.image_urls,
+                  'property_url', ap.property_url
+              )
+          ) FILTER (WHERE ap.id IS NOT NULL),
+          '[]'
+      ) AS properties,
+
+      COALESCE(
+          jsonb_agg(
+              DISTINCT jsonb_build_object(
+                  'reviewer_name', rm.reviewer_name,
+                  'review_title', rm.review_title,
+                  'review_description', rm.review_description,
+                  'rating', rm.rating,
+                  'review_date', rm.review_date
+              )
+          ) FILTER (WHERE rm.id IS NOT NULL),
+          '[]'
+      ) AS reviews,
+
+      COALESCE(
+          jsonb_agg(
+              DISTINCT jsonb_build_object(
+                  'member_name', tm.member_name,
+                  'rating', tm.rating,
+                  'sales_range_min', tm.sales_range_min,
+                  'sales_range_max', tm.sales_range_max,
+                  'total_sales', tm.total_sales
+              )
+          ) FILTER (WHERE tm.id IS NOT NULL),
+          '[]'
+      ) AS team
+
+    FROM agents a
+    LEFT JOIN agent_properties ap ON a.id = ap.agent_id
+    LEFT JOIN reviews_zillow_master rm ON a.id = rm.agent_id
+    LEFT JOIN team_members tm ON a.id = tm.agent_id
+
+    WHERE a.id = $1
+
+    GROUP BY a.id
+    ORDER BY a.id DESC;`,
+    [agentId]
+  );
+
+  
+  // const { rows } = await query(
+  //   `SELECT 
+  //    * from agent_detail
+  //   WHERE agent_id = $1
+  // `, [agentId]);
+
+  return rows;
+};
+
 module.exports = {
-  searchAgents, getAgentById, createAgent, updateAgent,
-  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,
+  searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
+  claimAgent, getAgentStats, getAgentReviews, recalculateTiers
 };

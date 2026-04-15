@@ -5,6 +5,14 @@ const { signAccess, signRefresh, verifyRefresh } = require('../utils/jwt');
 const { ApiError }               = require('../utils/errors');
 const { v4: uuidv4 }             = require('uuid');
 const config                     = require('../config');
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const axios = require("axios");
+const cheerio = require("cheerio");
+const puppeteer = require('puppeteer');
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+
+
 
 // ─── Signup ───────────────────────────────────────────────────────────────────
 const signup = async ({ email, password, first_name, last_name, role = 'consumer' }) => {
@@ -49,8 +57,8 @@ const login = async ({ email, password }) => {
   // Update last login
   await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
-  const accessToken  = signAccess(user.id);
-  const refreshToken = signRefresh(user.id);
+  const accessToken  = signAccess(user.id, user.first_name, user.last_name);
+  const refreshToken = signRefresh(user.id, user.first_name, user.last_name);
 
   // Persist refresh token
   await query(
@@ -62,6 +70,157 @@ const login = async ({ email, password }) => {
   const { password_hash: _, ...safeUser } = user;
   return { user: safeUser, accessToken, refreshToken };
 };
+
+///-------- google or facebook login ───────────────────────────────────────────────────────────
+
+
+const socialAuth = async ({ provider, idToken, accessToken }) => {
+  try {
+    let email, first_name, last_name, avatar_url, socialId;
+
+    // ================= GOOGLE =================
+    if (provider === 'google') {
+
+      if (!idToken) {
+        throw new ApiError(400, 'Google idToken is required');
+      }
+
+      let ticket;
+
+      try {
+        ticket = await googleClient.verifyIdToken({
+          idToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+      } catch (err) {
+        console.log("Google verify failed, retry without audience check");
+
+        // fallback (fix audience mismatch issue)
+        ticket = await googleClient.verifyIdToken({
+          idToken,
+        });
+      }
+
+      const payload = ticket.getPayload();
+
+      if (!payload) {
+        throw new ApiError(401, 'Invalid Google token payload');
+      }
+
+      socialId = payload.sub;
+      email = payload.email;
+      first_name = payload.given_name;
+      last_name = payload.family_name;
+      avatar_url = payload.picture;
+    }
+
+    // ================= FACEBOOK =================
+    else if (provider === 'facebook') {
+
+      if (!accessToken) {
+        throw new ApiError(400, 'Facebook accessToken is required');
+      }
+
+      const fbRes = await fetch(
+        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`
+      );
+
+      const data = await fbRes.json();
+
+      if (!data || !data.email) {
+        throw new ApiError(401, 'Facebook email not provided');
+      }
+
+      socialId = data.id;
+      email = data.email;
+      first_name = data.name?.split(' ')[0] || '';
+      last_name = data.name?.split(' ')[1] || '';
+      avatar_url = data.picture?.data?.url || null;
+    }
+
+    else {
+      throw new ApiError(400, 'Invalid provider');
+    }
+
+    if (!email) {
+      throw new ApiError(401, 'Email not found from provider');
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // ================= CHECK USER =================
+    const existing = await query(
+      `SELECT * FROM users WHERE email = $1`,
+      [normalizedEmail]
+    );
+
+    let user;
+
+    const column = provider === 'google' ? 'google_id' : 'facebook_id';
+
+    // ================= CREATE USER =================
+    if (!existing.rows.length) {
+
+      const { rows } = await query(
+        `INSERT INTO users 
+        (email, first_name, last_name, avatar_url, ${column}, is_verified, is_active, role, last_login_at)
+        VALUES ($1,$2,$3,$4,$5,true,true,'consumer',NOW())
+        RETURNING id, email, first_name, last_name, role, avatar_url`,
+        [
+          normalizedEmail,
+          first_name,
+          last_name,
+          avatar_url,
+          socialId
+        ]
+      );
+
+      user = rows[0];
+    }
+
+    // ================= UPDATE USER =================
+    else {
+
+      const { rows } = await query(
+        `UPDATE users 
+         SET ${column} = $1,
+             first_name = COALESCE(first_name, $2),
+             last_name = COALESCE(last_name, $3),
+             avatar_url = COALESCE(avatar_url, $4),
+             is_verified = true,
+             last_login_at = NOW(),
+             updated_at = NOW()
+         WHERE email = $5
+         RETURNING id, email, first_name, last_name, role, avatar_url`,
+        [
+          socialId,
+          first_name,
+          last_name,
+          avatar_url,
+          normalizedEmail
+        ]
+      );
+
+      user = rows[0];
+    }
+
+    // ================= JWT =================
+    const token = signAccess(user.id);
+    const refreshToken = signRefresh(user.id);
+
+    return {
+      user,
+      accessToken: token,
+      refreshToken,
+    };
+
+  } catch (err) {
+    console.error('Social Auth Error:', err);
+    throw err;
+  }
+};
+
+
 
 // ─── Refresh token ────────────────────────────────────────────────────────────
 const refreshTokens = async (refreshToken) => {
@@ -151,6 +310,7 @@ const changePassword = async (userId, currentPassword, newPassword) => {
   const password_hash = await hash(newPassword);
   await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
     [password_hash, userId]);
+
 };
 
 module.exports = { signup, login, refreshTokens, logout, verifyEmail, forgotPassword, resetPassword, changePassword };

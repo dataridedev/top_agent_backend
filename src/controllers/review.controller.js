@@ -9,6 +9,13 @@ const createReview = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const addReview = async (req, res, next) => {
+  try {
+    const review = await reviewService.addAgentReview(req.body);
+    created(res, review);
+  } catch (err) { next(err); }
+};
+
 const getReview = async (req, res, next) => {
   try {
     const review = await reviewService.getReviewById(parseInt(req.params.reviewId, 10));
@@ -58,4 +65,4 @@ const verifyReview = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { createReview, getReview, replyToReview, reportReview, importReviews, verifyReview };
+module.exports = { createReview, getReview, replyToReview, reportReview, importReviews, verifyReview, addReview };

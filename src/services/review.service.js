@@ -69,6 +69,56 @@ const createReview = async (data) => {
   return review;
 };
 
+
+
+const addAgentReview = async (data) => {
+  const {
+    agent_id,
+    reviewer_name,
+    review_title,
+    review_description,
+    rating,
+    review_date,
+    review_source
+  } = data;
+
+  // ✅ Check agent exists
+  const { rows: agent } = await query(
+    'SELECT id FROM agents WHERE id = $1',
+    [agent_id]
+  );
+
+  if (!agent.length) {
+    throw new ApiError(404, 'Agent not found');
+  }
+
+  // ✅ Safe date
+  // const finalDate =
+  //   review_date || new Date().toISOString().split('T')[0];
+  const finalDate = review_date
+  ? new Date(review_date).toISOString().split('T')[0]
+  : new Date().toISOString().split('T')[0];
+
+  // ✅ Insert into correct table
+  const { rows } = await query(
+    `INSERT INTO reviews_zillow_master
+      (agent_id, reviewer_name, review_title, review_description, rating, review_date, review_source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     RETURNING *`,
+    [
+      agent_id,
+      reviewer_name,
+      review_title,
+      review_description,
+      rating,
+      finalDate,
+      review_source
+    ]
+  );
+
+  return rows[0];
+};
+
 // Helper: check if this is the first review from a given platform (proxy for connection)
 const isPlatformConnectionNew = async (agentId, platform) => {
   const { rows } = await query(
@@ -153,4 +203,4 @@ const getReviewById = async (reviewId) => {
   return rows[0];
 };
 
-module.exports = { createReview, verifyReview, replyToReview, reportReview, bulkImportReviews, getReviewById };
+module.exports = { createReview, verifyReview, replyToReview, reportReview, bulkImportReviews, getReviewById,addAgentReview };

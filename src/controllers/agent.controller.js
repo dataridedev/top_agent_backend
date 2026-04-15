@@ -59,4 +59,21 @@ const getAgentReviews = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent, getAgentStats, getAgentReviews };
+const getAllAgent = async (req, res, next) => {
+  try {
+    console.log('Fetching all agents');
+    const stats = await agentService.getAllAgentService(req.query);
+    success(res, stats);
+  } catch (err) { next(err); }
+};
+
+const getAgentDetails = async (req, res, next) => {
+  try {
+    console.log('Fetching all agents');
+    const stats = await agentService.getAllAgentDetailsService(parseInt(req.params.agentId, 10));
+    success(res, stats);
+  } catch (err) { next(err); }
+};
+
+
+module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent, getAgentStats, getAgentReviews,getAllAgent, getAgentDetails };

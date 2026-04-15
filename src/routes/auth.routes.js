@@ -69,6 +69,37 @@ router.post('/signup',          authLimiter, signupRules,          validate, ctr
  */
 router.post('/login',           authLimiter, loginRules,           validate, ctrl.login);
 
+
+/**
+ * @swagger
+ * /auth/social-login:
+ *   post:
+ *     summary: Login with Google or Facebook
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [provider, token]
+ *             properties:
+ *               provider:
+ *                 type: string
+ *                 enum: [google, facebook]
+ *               token:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Returns JWT tokens and user object
+ *       401:
+ *         description: Invalid token
+ */
+router.post(
+  '/social',authLimiter,ctrl.socialLogin);
+
+
+
 /**
  * @swagger
  * /auth/refresh:

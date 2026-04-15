@@ -27,6 +27,19 @@ const createReviewRules = [
   body('rating_recommendation').optional().isInt({ min: 1, max: 5 }),
 ];
 
+const addReviewRules = [
+  body('agent_id').isInt({ min: 1 }).withMessage('Valid agent_id is required'),
+  body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be 1-5'),
+  body('reviewer_name').notEmpty().trim().isLength({ max: 100 }).withMessage('Reviewer name is required'),
+  body('review_description').optional().isLength({ max: 5000 }),
+  body('review_title').optional().trim().isLength({ max: 200 }),
+  body('platform').optional().isIn(PLATFORMS).withMessage('Invalid platform'),
+  body('review_date').optional().isISO8601().withMessage('Invalid review date')
+];
+
+
+
+
 const importReviewRules = [
   body('platform').isIn(PLATFORMS).withMessage('Invalid platform'),
   body('reviews').isArray({ min: 1, max: 500 }).withMessage('reviews must be an array of 1-500 items'),
@@ -54,4 +67,4 @@ const listReviewsQuery = [
   query('sort').optional().isIn(['recent','highest','lowest','helpful']),
 ];
 
-module.exports = { createReviewRules, importReviewRules, replyRules, reportRules, listReviewsQuery };
+module.exports = { createReviewRules, importReviewRules, replyRules, reportRules, listReviewsQuery,addReviewRules };

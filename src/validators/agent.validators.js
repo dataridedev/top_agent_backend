@@ -49,6 +49,13 @@ const searchAgentRules = [
   query('claimed_only').optional().isBoolean(),
 ];
 
+const AllAgentRules = [
+  query('q').optional().trim(),
+  query('city').optional().trim(),
+  query('specialties').optional()
+];
+
+
 const agentIdParam = [
   param('agentId').isInt({ min: 1 }).withMessage('Invalid agent ID'),
 ];
@@ -59,5 +66,5 @@ const claimAgentRules = [
 ];
 
 module.exports = {
-  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,
+  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules
 };

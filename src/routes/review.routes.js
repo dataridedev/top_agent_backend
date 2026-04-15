@@ -5,7 +5,7 @@ const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
 const { validate }   = require('../middleware/validate');
 const { authLimiter } = require('../middleware/rateLimiter');
 const {
-  createReviewRules, importReviewRules, replyRules, reportRules,
+  createReviewRules, importReviewRules, replyRules, reportRules,addReviewRules
 } = require('../validators/review.validators');
 
 /**
@@ -41,6 +41,36 @@ router.post('/',
   authLimiter, optionalAuth,
   createReviewRules, validate,
   ctrl.createReview
+);
+
+
+/**
+ * @swagger
+ * /reviews/add:
+ *   post:
+ *     summary: Add review (custom API)
+ *     tags: [Reviews]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReviewCreate'
+ *     responses:
+ *       201:
+ *         description: Review added successfully
+ *       404:
+ *         description: Agent not found
+ *       422:
+ *         description: Validation error
+ */
+router.post(
+  '/add',
+  authLimiter,
+  optionalAuth,
+  addReviewRules,
+  validate,
+  ctrl.addReview
 );
 
 /**
@@ -192,5 +222,9 @@ router.patch('/:reviewId/verify',
   authenticate, authorize('admin'),
   ctrl.verifyReview
 );
+
+
+
+
 
 module.exports = router;
