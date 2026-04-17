@@ -18,6 +18,8 @@ const { listReviewsQuery } = require('../validators/review.validators');
  *   description: Agent profiles, search, and management
  */
 
+
+
 /**
  * @swagger
  * /agents:
@@ -71,6 +73,27 @@ router.get('/',
 
 /**
  * @swagger
+ * /agents/getclaimAgent:
+ *   get:
+ *     summary: Get claimed agent profile (from token)
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Agent profile
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  '/agents/getclaimAgent',
+  authenticate,
+  authorize('agent', 'consumer', 'admin'),
+  ctrl.getclaim
+);
+
+/**
+ * @swagger
  * /agents/getAllAgent:
  *   get:
  *     summary: Get all agent profiles
@@ -83,6 +106,7 @@ router.get(
   '/getAllAgent',searchLimiter,AllAgentRules,validate,
   ctrl.getAllAgent
 );
+
 
 
 
@@ -159,6 +183,10 @@ router.get(
   ctrl.getAgentDetails
 );
 
+
+
+
+
 /**
  * @swagger
  * /agents/{agentId}:
@@ -228,6 +256,10 @@ router.post('/:agentId/claim',
   ctrl.claimAgent
 );
 
+
+
+
+
 /**
  * @swagger
  * /agents/{agentId}/stats:
@@ -288,5 +320,10 @@ router.get('/:agentId/reviews',
   pagination(20, 50),
   ctrl.getAgentReviews
 );
+
+
+
+
+
 
 module.exports = router;

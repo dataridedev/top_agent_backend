@@ -57,8 +57,8 @@ const login = async ({ email, password }) => {
   // Update last login
   await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
-  const accessToken  = signAccess(user.id, user.first_name, user.last_name);
-  const refreshToken = signRefresh(user.id, user.first_name, user.last_name);
+  const accessToken  = signAccess(user.id, user.first_name, user.last_name, user.role);
+  const refreshToken = signRefresh(user.id, user.first_name, user.last_name, user.role);
 
   // Persist refresh token
   await query(
@@ -253,6 +253,530 @@ const logout = async (refreshToken) => {
   await query('UPDATE refresh_tokens SET revoked = true WHERE token = $1', [refreshToken]);
 };
 
+
+
+
+
+
+const scrapeZillowAgentProvider = async ({ url }) => {
+    let browser, page;
+    let agentId = null;
+
+    const safeNum = (v) => v ? parseFloat(String(v).replace(/[^0-9.]/g, "")) || null : null;
+    const safeInt = (v) => v ? parseInt(String(v).replace(/[^0-9]/g, "")) || null : null;
+
+    const cleanPrice = (str) => {
+        if (!str) return null;
+        let val = safeNum(str);
+        if (!val) return null;
+
+        if (str.includes('M')) val *= 1000000;
+        else if (str.includes('K')) val *= 1000;
+
+        return val;
+    };
+
+    try {
+        browser = await puppeteer.launch({
+            headless: "new",
+            args: ["--no-sandbox", "--disable-setuid-sandbox"]
+        });
+
+        page = await browser.newPage();
+
+        // ✅ FIX: prevent navigation timeout crash
+        page.setDefaultNavigationTimeout(0);
+        page.setDefaultTimeout(0);
+
+        await page.setUserAgent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        );
+
+        await page.setExtraHTTPHeaders({
+            "accept-language": "en-US,en;q=0.9",
+        });
+
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false,
+            });
+        });
+
+        // =========================
+        // SAFE NAVIGATION (FIXED)
+        // =========================
+        try {
+            await page.goto(url, {
+                waitUntil: "networkidle2",
+                timeout: 120000
+            });
+        } catch (e) {
+            console.log("⚠ networkidle2 failed, retrying domcontentloaded...");
+
+            await page.goto(url, {
+                waitUntil: "domcontentloaded",
+                timeout: 120000
+            });
+        }
+
+        const html = await page.content();
+        const $ = cheerio.load(html);
+
+        // =========================
+        // AGENT DATA
+        // =========================
+        const name = $("h1").text().trim();
+        const team_heading = $("h2:contains('Team listings & sales')")
+            .text()
+            .replace(/Team listings & sales.*/, "")
+            .trim() || "Team Listings";
+
+        const company_name = $(".hJOiOT").first().text().trim();
+        const phone_number = $("a[href^='tel:']").first().text().replace("tel:", "").trim();
+        const office_number = $("a[href^='tel:']").eq(1).text().trim();
+        const email = $("a[href^='mailto:']").text().trim();
+        const address = $("a[href*='maps.google.com']").first().text().trim();
+
+        const total_reviews = safeInt($("a[href='#reviews']").text());
+        const sales_12m = safeInt($("span:contains('sales last 12 months')").prev().text());
+        const total_sales = safeInt($("span:contains('total sales')").prev().text());
+        const avg_price = safeNum($("span:contains('average price')").prev().text());
+
+        const rangeText = $("span:contains('price range')").prev().text() || "";
+        const rangeParts = rangeText.split("-");
+        const price_min = cleanPrice(rangeParts[0]);
+        const price_max = cleanPrice(rangeParts[1]);
+
+ 
+
+
+  await page.waitForSelector('div[aria-hidden="true"] img', {
+    timeout: 10000
+}).catch(() => {});
+
+const profile_url = await page.evaluate(() => {
+    const img = document.querySelector('div[aria-hidden="true"] img');
+    return img ? img.src : null;
+});
+
+//       const profile_url = await page.$eval(
+//   'div[aria-hidden="true"] img',
+//   img => img.getAttribute('src')
+// );
+      
+
+        const specs = [];
+        $(".iilNUJ").each((i, el) => specs.push($(el).text().trim()));
+
+        const website_url = $("a:contains('Visit team website')").attr("href");
+
+        const social = {
+            fb: $("a[href*='facebook.com']").attr("href"),
+            insta: $("a[href*='instagram.com']").attr("href"),
+            yt: $("a[href*='youtube.com']").attr("href"),
+            twitter: $("a[href*='x.com']").attr("href")
+        };
+
+        const about_h = $("h2:contains('Get to know')").text().trim();
+        const about_d = $(".dcLnWx p").text().trim();
+
+        // =========================
+        // INSERT AGENT (SAFE)
+        // =========================
+        await query("BEGIN");
+
+        const agentRes = await query(
+            `INSERT INTO agent_zillow_master (
+                name, team_heading, company_name, profile_url,
+                total_reviews, sales_last_12_months, total_sales_amount,
+                avg_price, price_range_min, price_range_max,
+                about_heading, about_description, specialization,
+                website_url, facebook_url, instagram_url,
+                youtube_url, twitter_url,
+                phone_number, office_number, email, address
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+            RETURNING id`,
+            [
+                name,
+                team_heading,
+                company_name,
+                profile_url,
+                total_reviews,
+                sales_12m,
+                total_sales,
+                avg_price,
+                price_min,
+                price_max,
+                about_h,
+                about_d,
+                specs.join(", "),
+                website_url,
+                social.fb,
+                social.insta,
+                social.yt,
+                social.twitter,
+                phone_number,
+                office_number,
+                email,
+                address
+            ]
+        );
+
+        agentId = agentRes.rows[0].id;
+
+        if (!agentId) throw new Error("Agent insert failed");
+
+        await query("COMMIT");
+
+        // =========================
+        // CHILD TRANSACTION START
+        // =========================
+        await query("BEGIN");
+
+        // =========================
+        // REVIEWS
+        // =========================
+        // let allReviews = [];
+        // let hasNextPage = true;
+        // let currentPage = 1;
+
+        // while (hasNextPage) {
+        //     console.log(`Scraping reviews page ${currentPage}...`);
+        //     const pageHtml = await page.content();
+        //     const $page = cheerio.load(pageHtml);
+
+        //     $page('[data-c11n-component="Carousel.Slide"]').each((i, el) => {
+        //         const slide = $page(el);
+        //         const metaInfo = slide.find('ul[data-c11n-component="Text"] li.nVRGN');
+                
+        //         const reviewDate = metaInfo.eq(0).text().trim();
+        //         const reviewerName = metaInfo.eq(1).text().replace('•', '').trim();
+        //         const ratingLabel = slide.find('[data-c11n-component="RatingStars"]').attr('aria-label');
+        //         const ratingValue = ratingLabel ? parseFloat(ratingLabel.split(' ')[0]) : 5.0;
+        //         const reviewTitle = slide.find('h3[data-c11n-component="Heading"]').text().trim();
+        //         const reviewDesc = slide.find('.kXeRhO .hvzgx').text().trim() || slide.find('.diIEdR .hvzgx').text().trim();
+
+        //         if (reviewerName && reviewDesc) {
+        //             allReviews.push({
+        //                 agent_id: agentId,
+        //                 reviewer_name: reviewerName,
+        //                 review_title: reviewTitle,
+        //                 review_description: reviewDesc,
+        //                 rating: ratingValue,
+        //                 review_date: reviewDate,
+        //                 review_source: 'Zillow'
+        //             });
+        //         }
+        //     });
+        
+        //     // Pagination logic: Next button dhundo
+        //     const nextButton = await page.$('button[title="Next page"], a[title="Next page"]');
+        //     if (nextButton) {
+        //         const isBtnDisabled = await page.evaluate(btn => btn.disabled || btn.getAttribute('aria-disabled') === 'true', nextButton);
+                
+        //         if (!isBtnDisabled) {
+        //             await nextButton.click();
+        //             await new Promise(r => setTimeout(r, 3000)); // Rate limiting se bachne ke liye
+        //             currentPage++;
+        //             // Zillow often loads reviews dynamically, networkidle2 is risky inside loops, better wait for a selector
+        //             await page.waitForSelector('[data-c11n-component="Carousel.Slide"]', { timeout: 5000 }).catch(() => {});
+        //         } else {
+        //             hasNextPage = false;
+        //         }
+        //     } else {
+        //         hasNextPage = false;
+        //     }
+
+        //     // Safety break for testing (e.g., max 20 pages)
+        //     if (currentPage > 50) break;
+
+
+        let allReviews = [];
+
+// wait until reviews are loaded
+await page.waitForSelector('[data-c11n-component="Carousel.Slide"]', {
+    timeout: 10000
+}).catch(() => {});
+
+const pageHtml = await page.content();
+const $page = cheerio.load(pageHtml);
+
+$page('[data-c11n-component="Carousel.Slide"]').each((i, el) => {
+
+    const slide = $page(el);
+    const metaInfo = slide.find('ul[data-c11n-component="Text"] li.nVRGN');
+
+    const reviewDate = metaInfo.eq(0).text().trim();
+    const reviewerName = metaInfo.eq(1).text().replace('•', '').trim();
+
+    const ratingLabel = slide.find('[data-c11n-component="RatingStars"]').attr('aria-label');
+    const ratingValue = ratingLabel
+        ? parseFloat(ratingLabel.split(' ')[0])
+        : 5.0;
+
+    const reviewTitle = slide.find('h3[data-c11n-component="Heading"]').text().trim();
+
+    const reviewDesc =
+        slide.find('.kXeRhO .hvzgx').text().trim() ||
+        slide.find('.diIEdR .hvzgx').text().trim();
+
+    if (reviewerName && reviewDesc) {
+        allReviews.push({
+            agent_id: agentId,
+            reviewer_name: reviewerName,
+            review_title: reviewTitle,
+            review_description: reviewDesc,
+            rating: ratingValue,
+            review_date: reviewDate,
+            review_source: 'Zillow'
+        });
+    }
+});
+
+console.log("Reviews scraped:", allReviews.length);
+        // =========================
+        // TEAM MEMBERS
+        // =========================
+        const teamMembers = [];
+
+        $("#team-member-card a[role='link']").each((idx, el) => {
+
+            const mRange = ($(el).find("p:contains('price range')").find(".gaCWqj").text() || "").split("-");
+
+            teamMembers.push({
+                member_name: $(el).find("h3").text().trim(),
+                rating: safeNum($(el).find(".cGSLnk .gaCWqj").text()),
+                sales_range_min: cleanPrice(mRange[0]),
+                sales_range_max: cleanPrice(mRange[1]),
+                total_sales: safeInt($(el).find("p:contains('sales last 12 months')").find(".gaCWqj").text())
+            });
+        });
+
+        // =========================
+        // PROPERTIES
+        // =========================
+//         const properties = [];
+
+//         $("#forSaleListings, #forRentListings, #pastSales").each((i, section) => {
+
+//             const sectionId = $(section).attr("id");
+
+//             let status =
+//                 sectionId === "forRentListings" ? "rented"
+//                 : sectionId === "pastSales" ? "sold"
+//                 : "sale";
+
+//             $(section).find("tbody tr").each((idx, row) => {
+
+//                 const rowNode = $(row);
+
+//                 const addressNode = rowNode.find(".MediaObject__Body-sc-12gs3hz-2");
+
+//                 const line1 = addressNode.contents().first().text().trim();
+//                 const line2 = addressNode.find("br").get(0)?.nextSibling?.nodeValue?.trim() || "";
+
+//                 const fullAddress = `${line1} ${line2}`.trim();
+
+//                 const propUrl = rowNode.find("a").attr("href");
+//                 const image_urls = await page.$$eval(
+//   'div.MediaObject__Media-sc-12gs3hz-3 img',
+//   imgs => imgs.map(img => img.src)
+// );
+
+//                 if (!fullAddress || !propUrl) return;
+
+//                 const fullUrl = propUrl.startsWith("http")
+//                     ? propUrl
+//                     : "https://www.zillow.com" + propUrl;
+
+//                 let rawPrice = "";
+//                 let soldDate = null;
+//                 let beds = null;
+//                 let baths = null;
+
+//                 if (status === "sold") {
+//                     soldDate = rowNode.find("td").eq(1).text().trim();
+//                     rawPrice = rowNode.find("td").eq(2).text().trim();
+//                 } else {
+//                     rawPrice = rowNode.find("td:contains('$')").last().text().trim();
+
+//                     const bedBathText = rowNode.find("td").eq(1).text().trim();
+
+//                     beds = bedBathText.includes("Studio")
+//                         ? 0
+//                         : safeInt(bedBathText.split(",")[0]);
+
+//                     baths = safeInt(bedBathText.split(",")[1]);
+//                 }
+
+//                 properties.push({
+//                     property_title: line1,
+//                     property_address: fullAddress,
+//                     property_type: "Residential",
+//                     status,
+//                     bedrooms: beds,
+//                     bathrooms: baths,
+//                     listing_price: cleanPrice(rawPrice),
+//                     sold_date: soldDate,
+//                     image_urls: image_urls,
+//                     property_url: fullUrl
+//                 });
+//             });
+//         });
+
+
+const properties = [];
+
+$("#forSaleListings, #forRentListings, #pastSales").each((i, section) => {
+
+    const sectionId = $(section).attr("id");
+
+    let status =
+        sectionId === "forRentListings" ? "rented"
+        : sectionId === "pastSales" ? "sold"
+        : "sale";
+
+    $(section).find("tbody tr").each((idx, row) => {
+
+        const rowNode = $(row);
+
+        const addressNode = rowNode.find(".MediaObject__Body-sc-12gs3hz-2");
+
+        const line1 = addressNode.contents().first().text().trim();
+        const line2 = addressNode.find("br").get(0)?.nextSibling?.nodeValue?.trim() || "";
+
+        const fullAddress = `${line1} ${line2}`.trim();
+
+        const propUrl = rowNode.find("a").attr("href");
+
+        // ✅ FIXED IMAGE EXTRACTION
+        const image_url = rowNode
+            .find("div.MediaObject__Media-sc-12gs3hz-3 img")
+            .attr("src");
+
+        if (!fullAddress || !propUrl) return;
+
+        const fullUrl = propUrl.startsWith("http")
+            ? propUrl
+            : "https://www.zillow.com" + propUrl;
+
+        let rawPrice = "";
+        let soldDate = null;
+        let beds = null;
+        let baths = null;
+
+        if (status === "sold") {
+            soldDate = rowNode.find("td").eq(1).text().trim();
+            rawPrice = rowNode.find("td").eq(2).text().trim();
+        } else {
+            rawPrice = rowNode.find("td:contains('$')").last().text().trim();
+
+            const bedBathText = rowNode.find("td").eq(1).text().trim();
+
+            beds = bedBathText.includes("Studio")
+                ? 0
+                : safeInt(bedBathText.split(",")[0]);
+
+            baths = safeInt(bedBathText.split(",")[1]);
+        }
+
+        properties.push({
+            property_title: line1,
+            property_address: fullAddress,
+            property_type: "Residential",
+            status,
+            bedrooms: beds,
+            bathrooms: baths,
+            listing_price: cleanPrice(rawPrice),
+            sold_date: soldDate,
+            image_url: image_url, // ✅ single correct image
+            property_url: fullUrl
+        });
+    });
+});
+        // =========================
+        // INSERT TEAM MEMBERS
+        // =========================
+        for (const m of teamMembers) {
+            await query(
+                `INSERT INTO team_members (agent_id, member_name, rating, sales_range_min, sales_range_max, total_sales)
+                 VALUES ($1,$2,$3,$4,$5,$6)`,
+                [agentId, m.member_name, m.rating, m.sales_range_min, m.sales_range_max, m.total_sales]
+            );
+        }
+
+        // =========================
+        // INSERT PROPERTIES
+        // =========================
+        for (const p of properties) {
+            await query(
+                `INSERT INTO agent_properties
+                (agent_id, property_title, property_address, property_type, status, bedrooms, bathrooms, listing_price, image_urls, property_url, sold_date)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                 ON CONFLICT (property_url)
+                 DO UPDATE SET status = EXCLUDED.status, listing_price = EXCLUDED.listing_price`,
+                [
+                    agentId,
+                    p.property_title,
+                    p.property_address,
+                    p.property_type,
+                    p.status,
+                    p.bedrooms,
+                    p.bathrooms,
+                    p.listing_price,
+                    [p.image_url],
+                    p.property_url,
+                    p.sold_date
+                ]
+            );
+        }
+
+        // =========================
+        // INSERT REVIEWS
+        // =========================
+        for (const r of allReviews) {
+            await query(
+                `INSERT INTO reviews_zillow_master
+                (agent_id, reviewer_name, review_title, review_description, rating, review_date, review_source)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)
+                 ON CONFLICT DO NOTHING`,
+                [
+                    agentId,
+                    r.reviewer_name,
+                    r.review_title,
+                    r.review_description,
+                    r.rating,
+                    r.review_date,
+                    r.review_source
+                ]
+            );
+        }
+
+        await query("COMMIT");
+
+        return {
+            success: true,
+            agentId,
+            reviews: allReviews.length,
+            properties: properties.length,
+            teamMembers: teamMembers.length
+        };
+      
+    } catch (err) {
+        try { await query("ROLLBACK"); } catch (e) {}
+        console.error("Scrape Error:", err);
+        throw err;
+
+    } finally {
+        if (browser) await browser.close();
+    }
+};
+
+
+
+
+
+
 // ─── Verify email ─────────────────────────────────────────────────────────────
 const verifyEmail = async (token) => {
   const { rows } = await query(
@@ -313,4 +837,4 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 
 };
 
-module.exports = { signup, login, refreshTokens, logout, verifyEmail, forgotPassword, resetPassword, changePassword };
+module.exports = { signup, login, refreshTokens, logout, verifyEmail, forgotPassword, resetPassword, changePassword ,scrapeZillowAgentProvider};

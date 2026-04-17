@@ -51,8 +51,7 @@ const searchAgents = async ({ q, city, province, specialties, languages, min_rat
   const orderBy = sortMap[sort] || sortMap.rating;
 
   const countSql = `SELECT COUNT(*) FROM agents a ${where}`;
-  const dataSql  = `
-    SELECT a.id, a.first_name, a.last_name, a.brokerage, a.photo_url,
+  const dataSql  = ` SELECT a.id, a.first_name, a.last_name, a.brokerage, a.photo_url,
            a.avg_rating, a.total_reviews, a.current_tier, a.total_points,
            a.specialties, a.areas_served, a.languages, a.claimed_at, a.verified_at,
            a.lead_notifications
@@ -69,6 +68,8 @@ const searchAgents = async ({ q, city, province, specialties, languages, min_rat
 
   return { agents: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
 };
+
+
 
 // ─── Get single agent ─────────────────────────────────────────────────────────
 const getAgentById = async (agentId) => {
@@ -158,6 +159,21 @@ const claimAgent = async (agentId, userId, licenseNumber) => {
 
   return getAgentById(agentId);
 };
+
+ // ─── get Claim agent profile ──────────────────────────────────────────────────────
+
+const claim= async () => {
+
+    await client.query(
+       `SELECT * FROM agents  where claimed_at IS NOT NULL `,
+    );
+
+  // Award founding agent points for profile completion
+  await awardPoints( );
+
+  return getAgentById(agentId);
+};
+
 
 // ─── Agent stats ──────────────────────────────────────────────────────────────
 const getAgentStats = async (agentId) => {
@@ -355,39 +371,30 @@ const getAllAgentService = async (
   // ===============================
   // 🔥 CLEAN SEARCH INPUT
   // ===============================
-  const cleanSearch = searchKey
-    ?.trim()
-    .replace(/\s+/g, ' ');
+  const cleanSearch = searchKey?.trim().replace(/\s+/g, ' ');
 
   // ===============================
-  // 🔥 SEARCH LOGIC (SIMPLIFIED & CORRECT)
+  // 🔥 UPDATED SEARCH LOGIC (AS PER YOUR NEW COLUMNS)
   // ===============================
   if (cleanSearch) {
 
     conditions.push(`
       (
-        -- ✅ name search
-        a.first_name ILIKE $${p}
-        OR a.last_name ILIKE $${p}
-        OR (a.first_name || ' ' || a.last_name) ILIKE $${p}
-        OR (a.last_name || ' ' || a.first_name) ILIKE $${p}
+        -- ✅ Name search
+        a.name ILIKE $${p}
 
-        -- ✅ brokerage
-        OR a.brokerage ILIKE $${p}
+        -- ✅ Company search
+        OR a.company_name ILIKE $${p}
 
-        -- ✅ areas_served (ARRAY SEARCH)
-        OR EXISTS (
-          SELECT 1 
-          FROM unnest(COALESCE(a.areas_served, '{}')) AS area
-          WHERE area ILIKE $${p}
-        )
+        -- ✅ City search
+        OR a.city ILIKE $${p}
 
-        -- ✅ specialties (ARRAY SEARCH)
-        OR EXISTS (
-          SELECT 1 
-          FROM unnest(COALESCE(a.specialties, '{}')) AS sp
-          WHERE sp ILIKE $${p}
-        )
+        -- ✅ Specialization search
+        OR a.specialization ILIKE $${p}
+
+        -- ✅ About / description (optional but useful)
+        OR a.about_heading ILIKE $${p}
+        OR a.about_description ILIKE $${p}
       )
     `);
 
@@ -408,23 +415,33 @@ const getAllAgentService = async (
   const dataSql = `
     SELECT 
       a.id,
-      a.license_number,
-      a.first_name,
-      a.last_name,
-      a.email,
-      a.phone,
-      a.photo_url,
-      a.website,
-      a.languages,
-      a.specialties,
-      a.areas_served,
-      a.verified_at,
-      a.last_active,
-      a.avg_rating,
+      a.name,
+      a.company_name,
+      a.profile_url,
       a.total_reviews,
-      a.lead_notifications,
-      a.marketing_emails
-    FROM agents a
+      a.sales_last_12_months,
+      a.total_sales_amount,
+      a.avg_price,
+      a.price_range_min,
+      a.price_range_max,
+      a.about_heading,
+      a.about_description,
+      a.specialization,
+      a.team_heading,
+      a.website_url,
+      a.linkedin_url,
+      a.facebook_url,
+      a.instagram_url,
+      a.youtube_url,
+      a.twitter_url,
+      a.created_at,
+      a.updated_at,
+      a.city,
+      a.email,
+      a.office_number,
+      a.license_number,
+      a.phone_number
+    FROM agent_zillow_master a
     ${where}
     ORDER BY a.id DESC
     LIMIT $${p} OFFSET $${p + 1}
@@ -432,7 +449,7 @@ const getAllAgentService = async (
 
   const countSql = `
     SELECT COUNT(*) 
-    FROM agents a 
+    FROM agent_zillow_master a 
     ${where}
   `;
 
@@ -452,6 +469,8 @@ const getAllAgentService = async (
     limit: safeLimit
   };
 };
+
+
 
 const getAllAgentDetailsService = async (agentId) => {
   console.log('Fetching all agents from service');
@@ -504,7 +523,7 @@ const getAllAgentDetailsService = async (agentId) => {
           '[]'
       ) AS team
 
-    FROM agents a
+    FROM   agent_zillow_master a
     LEFT JOIN agent_properties ap ON a.id = ap.agent_id
     LEFT JOIN reviews_zillow_master rm ON a.id = rm.agent_id
     LEFT JOIN team_members tm ON a.id = tm.agent_id
@@ -526,7 +545,11 @@ const getAllAgentDetailsService = async (agentId) => {
   return rows;
 };
 
+
+
+
+
 module.exports = {
   searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
-  claimAgent, getAgentStats, getAgentReviews, recalculateTiers
+  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim
 };

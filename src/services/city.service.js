@@ -25,6 +25,56 @@ const listCities = async ({ province = 'BC', region }, { limit, offset }) => {
   return { cities: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
 };
 
+
+const getcityAgents = async (slug) => {
+
+  // ✅ Step 1: Get all cities (for dropdown / optional use)
+  const cityListRes = await query(`
+    SELECT DISTINCT city 
+    FROM agent_zillow_master
+    ORDER BY city;
+  `);
+
+  let cityAgents;
+
+  // ✅ Step 2: If city is provided → filter
+  if (slug) {
+    cityAgents = await query(
+      `SELECT  
+        a.name,
+        a.company_name,
+        a.profile_url,
+        a.about_heading,
+        a.about_description
+       FROM agent_zillow_master a
+       WHERE a.city ILIKE $1`,
+      [slug]
+    );
+  } else {
+    // ✅ Step 3: If no city → return all agents
+    cityAgents = await query(
+      `SELECT  
+        a.name,
+        a.company_name,
+        a.profile_url,
+        a.about_heading,
+        a.about_description
+       FROM agent_zillow_master a`
+    );
+  }
+
+  return {
+    cities: cityListRes.rows,
+    agents: cityAgents.rows
+  };
+};
+
+
+
+
+
+
+
 const getCityBySlug = async (slug) => {
   const { rows } = await query(
     `SELECT c.*,
@@ -45,4 +95,4 @@ const getCityBySlug = async (slug) => {
   return rows[0];
 };
 
-module.exports = { listCities, getCityBySlug };
+module.exports = { listCities, getCityBySlug ,getcityAgents};

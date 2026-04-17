@@ -23,6 +23,7 @@ const createAgent = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+
 const updateAgent = async (req, res, next) => {
   try {
     const agent = await agentService.updateAgent(parseInt(req.params.agentId, 10), req.body);
@@ -37,6 +38,18 @@ const claimAgent = async (req, res, next) => {
       req.user.id,
       req.body.license_number
     );
+    success(res, agent);
+  } catch (err) { next(err); }
+};
+
+const getclaim = async (req, res, next) => {
+  try {
+
+    role = req.decoded.role;
+    if(role !== 'agent') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const agent = await agentService.claim();
     success(res, agent);
   } catch (err) { next(err); }
 };
@@ -76,4 +89,5 @@ const getAgentDetails = async (req, res, next) => {
 };
 
 
-module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent, getAgentStats, getAgentReviews,getAllAgent, getAgentDetails };
+
+module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent, getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim };

@@ -45,6 +45,35 @@ const logout = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+
+const scrapezillowController = async (req, res) => {
+  try {
+    console.log("scrapezillowController :::");
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        message: "url is required",
+      });
+    }
+
+    const response = await  authService.scrapeZillowAgentProvider({
+      url
+    });
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error("Scrape Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
 const verifyEmail = async (req, res, next) => {
   try {
     await authService.verifyEmail(req.params.token);
@@ -87,4 +116,4 @@ const getMe = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { signup, login, refresh, logout, verifyEmail, forgotPassword, resetPassword, changePassword, getMe,socialLogin}
+module.exports = { signup, login, refresh, logout, verifyEmail, forgotPassword, resetPassword, changePassword, getMe,socialLogin,scrapezillowController}

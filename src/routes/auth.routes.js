@@ -145,6 +145,22 @@ router.post('/logout',                                                         c
 
 /**
  * @swagger
+ * /agents/scrape-zillow-agent:
+ *   post:
+ *     summary: Scrape Zillow agent data
+ *     tags: [Agents]
+ *     responses:
+ *       200:
+ *         description: Scraping successful
+ */
+router.post(
+  '/scrape-zillow-agent',
+  ctrl.scrapezillowController
+);
+
+
+/**
+ * @swagger
  * /auth/verify-email/{token}:
  *   get:
  *     summary: Verify email address via token

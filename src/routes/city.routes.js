@@ -52,6 +52,43 @@ router.get('/',
 
 /**
  * @swagger
+ * /cities:
+ *   get:
+ *     summary: List all BC cities
+ *     tags: [Cities]
+ *     parameters:
+ *       - in: query
+ *         name: province
+ *         schema: { type: string, default: BC }
+ *       - in: query
+ *         name: region
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50 }
+ *     responses:
+ *       200:
+ *         description: Paginated city list with agent counts
+ */
+router.get('/getcityAgents',
+  async (req, res, next) => {
+    try {
+      const { city } = req.query;
+
+      const data = await cityService.getcityAgents(city);
+
+      success(res, data);
+    } catch (err) { 
+      next(err); 
+    }
+});
+
+
+/**
+ * @swagger
  * /cities/{slug}:
  *   get:
  *     summary: Get city landing page data by slug

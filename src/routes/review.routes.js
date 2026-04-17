@@ -65,7 +65,7 @@ router.post('/',
  *         description: Validation error
  */
 router.post(
-  '/add',
+  '/add', authenticate,
   authLimiter,
   optionalAuth,
   addReviewRules,
