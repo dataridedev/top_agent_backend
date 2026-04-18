@@ -2,6 +2,7 @@
 const { query, withTransaction } = require('../db/pool');
 const { ApiError }               = require('../utils/errors');
 const { awardPoints }            = require('../utils/points');
+const { uploadToS3 }             = require('../config/awsFileHelper');
 
 // ─── Search agents ────────────────────────────────────────────────────────────
 const searchAgents = async ({ q, city, province, specialties, languages, min_rating,
@@ -162,16 +163,13 @@ const claimAgent = async (agentId, userId, licenseNumber) => {
 
  // ─── get Claim agent profile ──────────────────────────────────────────────────────
 
-const claim= async () => {
+const claim = async () => {
 
-    await client.query(
-       `SELECT * FROM agents  where claimed_at IS NOT NULL `,
+  const { rows } =  await query(
+       `SELECT * FROM agent_zillow_master  where claimed_at IS NOT NULL `
     );
 
-  // Award founding agent points for profile completion
-  await awardPoints( );
-
-  return getAgentById(agentId);
+  return rows;
 };
 
 
@@ -368,31 +366,27 @@ const getAllAgentService = async (
   const safeLimit = Number(limit) || 20;
   const safeOffset = (Number(page) - 1) * safeLimit;
 
-  // ===============================
-  // 🔥 CLEAN SEARCH INPUT
-  // ===============================
+
   const cleanSearch = searchKey?.trim().replace(/\s+/g, ' ');
 
-  // ===============================
-  // 🔥 UPDATED SEARCH LOGIC (AS PER YOUR NEW COLUMNS)
-  // ===============================
+
   if (cleanSearch) {
 
     conditions.push(`
       (
-        -- ✅ Name search
+    
         a.name ILIKE $${p}
 
         -- ✅ Company search
         OR a.company_name ILIKE $${p}
 
-        -- ✅ City search
+       
         OR a.city ILIKE $${p}
 
-        -- ✅ Specialization search
+   
         OR a.specialization ILIKE $${p}
 
-        -- ✅ About / description (optional but useful)
+      
         OR a.about_heading ILIKE $${p}
         OR a.about_description ILIKE $${p}
       )
@@ -469,6 +463,7 @@ const getAllAgentService = async (
     limit: safeLimit
   };
 };
+
 
 
 
@@ -551,5 +546,5 @@ const getAllAgentDetailsService = async (agentId) => {
 
 module.exports = {
   searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
-  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim
+  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,getUserInfo,UserAvatar
 };

@@ -25,51 +25,104 @@ const listCities = async ({ province = 'BC', region }, { limit, offset }) => {
   return { cities: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
 };
 
+const getcityAgents = async (slug, { search, page = 1, limit = 10 } = {}) => {
+  try {
 
-const getcityAgents = async (slug) => {
+    const conditions = [];
+    const params = [];
+    let p = 1;
 
-  // ✅ Step 1: Get all cities (for dropdown / optional use)
-  const cityListRes = await query(`
-    SELECT DISTINCT city 
-    FROM agent_zillow_master
-    ORDER BY city;
-  `);
 
-  let cityAgents;
+    if (slug) {
+      conditions.push(`a.city ILIKE $${p++}`);
+      params.push(`%${slug}%`);
+    }
 
-  // ✅ Step 2: If city is provided → filter
-  if (slug) {
-    cityAgents = await query(
+
+    if (search) {
+      conditions.push(`a.name ILIKE $${p++}`);
+      params.push(`%${search}%`);
+    }
+
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
+
+
+    const offset = (page - 1) * limit;
+
+    params.push(limit);
+    params.push(offset);
+
+  
+    const cityAgents = await query(
       `SELECT  
+        a.id,
         a.name,
         a.company_name,
         a.profile_url,
         a.about_heading,
-        a.about_description
+        a.about_description,
+        a.city
        FROM agent_zillow_master a
        WHERE a.city ILIKE $1`,
       [slug]
     );
-  } else {
-    // ✅ Step 3: If no city → return all agents
-    cityAgents = await query(
-      `SELECT  
-        a.name,
-        a.company_name,
-        a.profile_url,
-        a.about_heading,
-        a.about_description
-       FROM agent_zillow_master a`
-    );
-  }
 
-  return {
-    cities: cityListRes.rows,
-    agents: cityAgents.rows
-  };
+    const countParams = params.slice(0, params.length - 2);
+
+    const countRes = await query(
+      `SELECT COUNT(*) 
+       FROM agent_zillow_master a
+       ${whereClause}`,
+      countParams
+    );
+
+    return {
+      success: true,
+      total: parseInt(countRes.rows[0].count, 10),
+      page,
+      limit,
+      agents: cityAgents.rows
+    };
+
+  } catch (error) {
+    console.error('Error in getcityAgents:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Failed to fetch agents'
+      }
+    };
+  }
 };
 
+const city = async () => {
+  try {
+    const { rows } = await query(`
+      SELECT DISTINCT city 
+      FROM agent_zillow_master
+      WHERE city IS NOT NULL
+      ORDER BY city;
+    `);
 
+    return {
+      success: true,
+      count: rows.length,
+      cities: rows
+    };
+
+  } catch (error) {
+    console.error('Error in getcity:', error);
+
+    return {
+      success: false,
+      error: {
+        message: 'Failed to fetch city'
+      }
+    };
+  }
+};
 
 
 
@@ -95,4 +148,4 @@ const getCityBySlug = async (slug) => {
   return rows[0];
 };
 
-module.exports = { listCities, getCityBySlug ,getcityAgents};
+module.exports = { listCities, getCityBySlug ,getcityAgents, city };

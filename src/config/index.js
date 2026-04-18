@@ -58,6 +58,14 @@ module.exports = {
     redirectUri:  process.env.GOOGLE_REDIRECT_URI,
   },
 
+    aws: {
+  accessKeyId: process.env.S3_ACCESS_KEY,
+  secretAccessKey: process.env.S3_SECRET_KEY,
+  region: process.env.AWS_REGION,
+  bucketName: process.env.AWS_BUCKET_NAME,
+},
+
+
   cors: {
     origins: (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3001').split(','),
   },

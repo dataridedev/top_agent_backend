@@ -54,6 +54,26 @@ router.get('/',
  * @swagger
  * /cities:
  *   get:
+ *     summary: List all cities
+ *     tags: [Cities]
+ *     responses:
+ *       200:
+ *         description: List of cities
+ */
+router.get('/getcity', async (req, res, next) => {
+  try {
+    const data = await cityService.city();
+    success(res, data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+/**
+ * @swagger
+ * /cities:
+ *   get:
  *     summary: List all BC cities
  *     tags: [Cities]
  *     parameters:
@@ -73,19 +93,21 @@ router.get('/',
  *       200:
  *         description: Paginated city list with agent counts
  */
-router.get('/getcityAgents',
-  async (req, res, next) => {
-    try {
-      const { city } = req.query;
+router.get('/getcityAgents', async (req, res, next) => {
+  try {
+    const { city, page, limit,search } = req.query;
 
-      const data = await cityService.getcityAgents(city);
+    const data = await cityService.getcityAgents(city, {
+      page: Number(page) || 1,
+      limit: Number(limit) || 20,
+      search: search || null
+    });
 
-      success(res, data);
-    } catch (err) { 
-      next(err); 
-    }
+    success(res, data);
+  } catch (err) {
+    next(err);
+  }
 });
-
 
 /**
  * @swagger

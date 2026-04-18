@@ -791,6 +791,82 @@ paths:
         '401':
           description: Invalid credentials
 
+  /auth/social-login:
+  post:
+    tags: [Auth]
+    summary: Login with Google or Facebook
+    description: Social login using OAuth provider token (Google/Facebook)
+
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - provider
+              - token
+            properties:
+              provider:
+                type: string
+                enum: [google, facebook]
+                example: google
+
+              token:
+                type: string
+                example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    responses:
+      '200':
+        description: Login successful, returns JWT tokens and user data
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                accessToken: "jwt_access_token_here"
+                refreshToken: "jwt_refresh_token_here"
+                user:
+                  id: 1
+                  name: "John Doe"
+                  email: "john@example.com"
+                  provider: "google"
+
+      '401':
+        description: Invalid token or authentication failed
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Invalid token"
+
+  /auth/scrape-zillow-agent:
+  post:
+    tags: [Auth]
+    summary: Scrape Zillow agent data (Admin only)
+    description: Protected API for admin users only
+
+    security:
+      - bearerAuth: []
+
+    responses:
+      '200':
+        description: Scraping successful
+        content:
+          application/json:
+            example:
+              success: true
+              message: "Scraping completed successfully"
+
+      '401':
+        description: Unauthorized (No token or invalid token)
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Scraping failed"
+
+
   /auth/refresh:
     post:
       tags: [Auth]
@@ -1007,6 +1083,165 @@ paths:
                   meta:
                     $ref: '#/components/schemas/PaginationMeta'
 
+    /agents/getclaimAgent:
+  get:
+    tags: [Agents]
+    summary: Get claimed agent profile (from token)
+    description: Returns logged-in agent profile based on JWT token
+    security:
+      - bearerAuth: []
+
+    responses:
+      '200':
+        description: Agent profile fetched successfully
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                id: 1
+                name: "John Doe"
+                email: "john@example.com"
+                role: "agent"
+
+      '401':
+        description: Unauthorized - Invalid or missing token
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Unauthorized"
+
+    /agents/getAllAgent:
+  get:
+    tags: [Agents]
+    summary: Get all agent profiles
+    description: Returns list of all agents with filters and pagination support
+    parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search by name or brokerage
+
+      - in: query
+        name: city
+        schema:
+          type: string
+
+      - in: query
+        name: province
+        schema:
+          type: string
+
+      - in: query
+        name: min_rating
+        schema:
+          type: number
+          minimum: 1
+          maximum: 5
+
+      - in: query
+        name: tier
+        schema:
+          type: string
+          enum: [BRONZE, SILVER, GOLD, PLATINUM, DIAMOND, LUMINARY]
+
+      - in: query
+        name: specialties
+        schema:
+          type: string
+        description: Comma-separated list
+
+      - in: query
+        name: languages
+        schema:
+          type: string
+        description: Comma-separated list
+
+      - in: query
+        name: sort
+        schema:
+          type: string
+          enum: [rating, reviews, recent, points]
+          default: rating
+
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+
+    responses:
+      '200':
+        description: Success
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Agent'
+                meta:
+                  $ref: '#/components/schemas/PaginationMeta'
+    
+    /agent/getuserinfo:
+  get:
+    tags: [Agents]
+    summary: Get full agent profile by ID
+    description: Returns agent profile using agentId query parameter
+
+    parameters:
+      - in: query
+        name: agentId
+        required: true
+        schema:
+          type: integer
+        description: Unique agent ID
+
+    security:
+      - bearerAuth: []
+
+    responses:
+      '200':
+        description: User profile fetched successfully
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                id: 1
+                name: "John Doe"
+                email: "john@example.com"
+                city: "Nagpur"
+
+      '404':
+        description: User not found
+        content:
+          application/json:
+            example:
+              success: false
+              message: "User not found"
+
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Unauthorized"
+
     post:
       tags: [Agents]
       summary: Create agent profile (admin or bulk seed)
@@ -1176,6 +1411,94 @@ paths:
                           current_tier:
                             type: string
 
+    /agents/details/{agentId}:
+  get:
+    tags: [Agents]
+    summary: Get full agent profile by ID
+    description: Returns single agent details using agentId
+    parameters:
+      - in: path
+        name: agentId
+        required: true
+        schema:
+          type: integer
+        description: Unique Agent ID
+
+    responses:
+      '200':
+        description: Agent profile
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                id: 1
+                name: "John Doe"
+                city: "Nagpur"
+
+      '404':
+        description: Agent not found
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Agent not found"
+
+  /agent/editavatar:
+  put:
+    tags: [Agents]
+    summary: Edit agent avatar
+    description: Update logged-in agent avatar image using file upload
+
+    security:
+      - bearerAuth: []
+
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              avatar:
+                type: string
+                format: binary
+                description: Upload agent avatar image
+
+    responses:
+      '200':
+        description: Avatar updated successfully
+        content:
+          application/json:
+            example:
+              success: true
+              message: "Avatar updated successfully"
+              data:
+                avatar_url: "https://s3-bucket-url.com/image.jpg"
+
+      '403':
+        description: Not authorized
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Access denied"
+
+      '401':
+        description: Unauthorized (No token or invalid token)
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Unauthorized"
+
+      '500':
+        description: Server error
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Something went wrong"
   /agents/{agentId}/reviews:
     get:
       tags: [Agents]
@@ -1434,6 +1757,47 @@ paths:
                         type: integer
                       total:
                         type: integer
+
+  /reviews/add:
+  post:
+    tags: [Reviews]
+    summary: Add review (custom API)
+    description: Allows user to add a review for an agent
+
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewCreate'
+
+    responses:
+      '201':
+        description: Review added successfully
+        content:
+          application/json:
+            example:
+              success: true
+              message: "Review added successfully"
+              data:
+                id: 1
+                rating: 5
+                comment: "review  add successfully"
+      '404':
+        description: Agent not found
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Agent not found"
+
+      '422':
+        description: Validation error
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Validation failed"
 
   /reviews/{reviewId}:
     get:
@@ -1832,6 +2196,70 @@ paths:
                       $ref: '#/components/schemas/City'
                   meta:
                     $ref: '#/components/schemas/PaginationMeta'
+  
+  /cities/getcity:
+  get:
+    tags: [Cities]
+    summary: List all cities
+    description: Fetches all available cities
+
+    responses:
+      '200':
+        description: List of cities
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                - "Chicago"
+                - "Sterling"
+                - "Evanston"
+
+/cities/getcityAgents:
+  get:
+    tags: [Cities]
+    summary: Get city-wise agents with pagination
+    description: Returns list of cities with agent data
+
+    parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+        description: Filter by city name
+
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+
+    responses:
+      '200':
+        description: Paginated city list with agent counts
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                cities:
+                  - id: 2
+                    name: "Bari Levine Bruszer"
+                    company_name: "Refine Residential x @properties Christie's International"
+                    profile_url: "https://photos.zillowstatic.com/fp/6a55a194295acce5672726239e0479c8-h_l.jpg"
+                    about_heading: "Get to know Refine Residential"
+                    about_description: "Bari Levine is a top-producing real-estate advisor and founding partner..."
+                    city: "Chicago"
+              meta:
+                page: 1
+                limit: 20
+
 
   /cities/{slug}:
     get:

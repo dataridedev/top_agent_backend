@@ -44,14 +44,28 @@ const claimAgent = async (req, res, next) => {
 
 const getclaim = async (req, res, next) => {
   try {
+    const { role} = req.user;
 
-    role = req.decoded.role;
-    if(role !== 'agent') {
-      return res.status(403).json({ message: 'Forbidden' });
+    let data;
+
+    if (role === 'admin') {
+      data = await agentService.claim();
     }
-    const agent = await agentService.claim();
-    success(res, agent);
-  } catch (err) { next(err); }
+    // } else if (role === 'agent') {
+    //   data = await agentService.getMyClaimedAgent(userId);
+
+    // } else {
+    //   return res.status(403).json({ message: 'Forbidden' });
+    // }
+
+    return res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    next(err);
+  }
 };
 
 const getAgentStats = async (req, res, next) => {
@@ -88,6 +102,57 @@ const getAgentDetails = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const userinfo = async (req, res, next) => {
+  try {
+    const userId = req.user.id; 
+
+    const data = await agentService.getUserInfo(userId);
+
+    if (!data) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+const editUserAvatar = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+  
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: "Avatar file is required"
+      });
+    }
+
+  
+    const data = await agentService.UserAvatar(userId, file);
+
+    if (!data) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
 
 
-module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent, getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim };
+
+module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent, getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar };

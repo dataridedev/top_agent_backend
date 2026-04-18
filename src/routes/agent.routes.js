@@ -10,6 +10,18 @@ const {
   agentIdParam, claimAgentRules,AllAgentRules
 } = require('../validators/agent.validators');
 const { listReviewsQuery } = require('../validators/review.validators');
+const multer = require('multer')
+const upload = multer({
+    fileFilter: function (req, file, done) {
+        console.log(file)
+        if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/jpg') {
+            done(null, true)
+        }
+        else {
+            done('multer issue', false)
+        }
+    }
+})
 
 /**
  * @swagger
@@ -73,7 +85,7 @@ router.get('/',
 
 /**
  * @swagger
- * /agents/getclaimAgent:
+ * /agent/getclaimAgent:
  *   get:
  *     summary: Get claimed agent profile (from token)
  *     tags: [Agents]
@@ -81,12 +93,12 @@ router.get('/',
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Agent profile
+ *         description: Agent profile fetched successfully
  *       401:
  *         description: Unauthorized
  */
 router.get(
-  '/agents/getclaimAgent',
+  '/getclaimAgent',
   authenticate,
   authorize('agent', 'consumer', 'admin'),
   ctrl.getclaim
@@ -106,6 +118,59 @@ router.get(
   '/getAllAgent',searchLimiter,AllAgentRules,validate,
   ctrl.getAllAgent
 );
+
+/**
+ * @swagger
+ * /agent/getuserinfo:
+ *   get:
+ *     summary: Get full agent profile by ID
+ *     tags: [Agents]
+ *     parameters:
+ *       - in: query
+ *         name: agentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User profile
+ *       404:
+ *         description: User not found
+ */
+router.get('/getuserinfo', authenticate, ctrl.userinfo)
+
+/**
+ * @swagger
+ * /agent/editavatar:
+ *   put:
+ *     summary: Edit agent avatar
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Agent profile image
+ *     responses:
+ *       200:
+ *         description: Avatar updated
+ *       403:
+ *         description: Not authorized
+ */
+router.put(
+  '/editavatar',
+  authenticate,
+  upload.single('avatar'),
+  ctrl.editUserAvatar
+);
+
 
 
 
