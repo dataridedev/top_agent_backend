@@ -546,5 +546,6 @@ const getAllAgentDetailsService = async (agentId) => {
 
 module.exports = {
   searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
-  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,getUserInfo,UserAvatar
+  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,
+  // getUserInfo,UserAvatar
 };
