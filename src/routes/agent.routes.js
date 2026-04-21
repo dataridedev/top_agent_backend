@@ -10,18 +10,29 @@ const {
   agentIdParam, claimAgentRules,AllAgentRules
 } = require('../validators/agent.validators');
 const { listReviewsQuery } = require('../validators/review.validators');
-const multer = require('multer')
+const multer = require('multer');
+
 const upload = multer({
-    fileFilter: function (req, file, done) {
-        console.log(file)
-        if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/jpg') {
-            done(null, true)
-        }
-        else {
-            done('multer issue', false)
-        }
+  fileFilter: function (req, file, done) {
+
+    console.log("UPLOAD FILE:", file);
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp'   // 🔥 add this (important)
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      done(null, true);
+    } else {
+      done(new Error('Only image files are allowed'), false);
     }
-})
+  }
+});
+
+module.exports = upload;
 
 /**
  * @swagger
@@ -225,6 +236,40 @@ router.get('/:agentId',
 
 /**
  * @swagger
+ * /agents/{agentId}/editClaim:
+ *   put:
+ *     summary: Verify claimed agent (Admin only)
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: agentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Agent verified successfully
+ *       400:
+ *         description: Invalid agentId
+ *       404:
+ *         description: Agent not found
+ *       403:
+ *         description: Forbidden
+ */
+router.put(
+  '/:agentId/editClaim',
+  authenticate,
+  authorize('admin'), // only admin
+  agentIdParam,
+  validate,
+  ctrl.editClaimAgent
+);
+
+
+/**
+ * @swagger
   * /agents/details/:{agentId}:
  *   get:
  *     summary: Get full agent profile by ID
@@ -320,7 +365,6 @@ router.post('/:agentId/claim',
   agentIdParam, claimAgentRules, validate,
   ctrl.claimAgent
 );
-
 
 
 

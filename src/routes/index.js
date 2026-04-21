@@ -9,5 +9,6 @@ router.use('/referrals',require('./referral.routes'));
 router.use('/leads',    require('./lead.routes'));
 router.use('/cities',   require('./city.routes'));
 router.use('/admin',    require('./admin.routes'));
+router.use('/scraping', require('./scraping.routes'));
 
 module.exports = router;

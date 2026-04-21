@@ -78,7 +78,7 @@ const getAgentById = async (agentId) => {
     `SELECT a.*,
        (SELECT COUNT(*) FROM platform_connections pc WHERE pc.agent_id = a.id AND pc.sync_status = 'ACTIVE') AS connected_platforms,
        (SELECT COUNT(*) FROM referrals r WHERE (r.sender_id = a.id OR r.receiver_id = a.id) AND r.status = 'COMPLETED') AS completed_referrals
-     FROM agents a
+     FROM agent_zillow_master a
      WHERE a.id = $1`,
     [agentId]
   );
@@ -135,7 +135,7 @@ const updateAgent = async (agentId, data) => {
 const claimAgent = async (agentId, userId, licenseNumber) => {
   // Verify license matches
   const { rows: agentRows } = await query(
-    'SELECT id, claimed_at, license_number FROM agents WHERE id = $1',
+    'SELECT id, claimed_at, license_number FROM agent_zillow_master WHERE id = $1',
     [agentId]
   );
   if (!agentRows.length) throw new ApiError(404, 'Agent not found');
@@ -146,7 +146,7 @@ const claimAgent = async (agentId, userId, licenseNumber) => {
 
   await withTransaction(async (client) => {
     await client.query(
-      `UPDATE agents SET claimed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      `UPDATE agent_zillow_master SET claimed_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [agentId]
     );
     await client.query(
@@ -166,12 +166,62 @@ const claimAgent = async (agentId, userId, licenseNumber) => {
 const claim = async () => {
 
   const { rows } =  await query(
-       `SELECT * FROM agent_zillow_master  where claimed_at IS NOT NULL `
+       `SELECT 
+  am.*,
+  u."id" as user_id,
+  u.first_name || ' ' || u.last_name as user_name,
+  u.role as user_role
+FROM agent_zillow_master am
+LEFT JOIN users u 
+  ON am.id = u.agent_id
+WHERE am.claimed_at IS NOT NULL and am.agent_verified  is NULL
+ORDER BY am.claimed_at DESC; `
     );
 
   return rows;
 };
 
+ // ─── edit  Claim agent profile ──────────────────────────────────────────────────────
+
+const editClaimAgentByAdmin = async (agentId, agent_verified) => {
+
+  let queryText;
+  let values;
+
+  if (agent_verified === true) {
+
+
+    queryText = `
+      UPDATE agent_zillow_master 
+      SET agent_verified = $1,
+          updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `;
+
+    values = [true, agentId];
+
+  } else {
+
+
+    queryText = `
+      UPDATE agent_zillow_master 
+      SET agent_verified = $1,
+          claimed_at = NULL,
+          updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `;
+
+    values = [false, agentId];
+  }
+
+  const { rows } = await query(queryText, values);
+
+  console.log("UPDATED AGENT DATA:", rows[0]);
+
+  return rows[0];
+};
 
 // ─── Agent stats ──────────────────────────────────────────────────────────────
 const getAgentStats = async (agentId) => {
@@ -541,11 +591,46 @@ const getAllAgentDetailsService = async (agentId) => {
 };
 
 
+const getUserInfo = async (userId) => {
+  const { rows } = await query(   
+    `SELECT id, email, first_name, last_name, role, avatar_url,
+            is_verified, agent_id, last_login_at, created_at
+     FROM users WHERE id = $1`,
+    [userId]
+  );
+  return rows[0];
+}
 
+const UserAvatar = async (userId, file) => {
+  
+  if (!file || !file.buffer) {
+    throw new Error("Invalid file");
+  }
 
+  // 1. Upload to S3
+  const uploadResult = await uploadToS3(file);
+
+  if (!uploadResult || !uploadResult.Location) {
+    throw new Error("S3 upload failed");
+  }
+
+  const avatarUrl = uploadResult.Location;
+
+  // 2. Save in DB
+  const { rows } = await query(
+    `UPDATE users 
+     SET avatar_url = $1, 
+         updated_at = NOW() 
+     WHERE id = $2 
+     RETURNING avatar_url`,
+    [avatarUrl, userId]
+  );
+
+  return rows[0];
+};
 
 module.exports = {
   searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
-  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,
-  // getUserInfo,UserAvatar
+  claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,editClaimAgentByAdmin, getUserInfo
+  ,UserAvatar
 };
