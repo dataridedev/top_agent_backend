@@ -109,6 +109,26 @@ router.get('/getcityAgents', async (req, res, next) => {
   }
 });
 
+
+/**
+ * @swagger
+ * /cities:
+ *   get:
+ *     summary: List all cities
+ *     tags: [Cities]
+ *     responses:
+ *       200:
+ *         description: List of cities
+ */
+router.get('/getcity', async (req, res, next) => {
+  try {
+    const data = await cityService.city();
+    success(res, data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 /**
  * @swagger
  * /cities/{slug}:
