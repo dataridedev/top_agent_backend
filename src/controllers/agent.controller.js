@@ -133,12 +133,31 @@ const getAgentReviews = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// const getAllAgent = async (req, res, next) => {
+//   try {
+//     console.log('Fetching all agents');
+//     const stats = await agentService.getAllAgentService(req.query,req.pagination);
+//     success(res, stats);
+//   } catch (err) { next(err); }
+// };
+
 const getAllAgent = async (req, res, next) => {
   try {
     console.log('Fetching all agents');
-    const stats = await agentService.getAllAgentService(req.query);
-    success(res, stats);
-  } catch (err) { next(err); }
+
+    const { page = 1, limit = 20 } = req.query;
+
+    const stats = await agentService.getAllAgentService(
+      req.query,
+      { page, limit }
+    );
+
+    return success(res, stats);
+
+  } catch (err) {
+    console.error('Error in getAllAgent:', err.message);
+    return next(err);
+  }
 };
 
 const getAgentDetails = async (req, res, next) => {
@@ -201,6 +220,33 @@ const editUserAvatar = async (req, res, next) => {
 };
 
 
+const updateuserinfo = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const {  first_name, last_name, role,phone,company_name	,address,	city}= req.body;
+  
+    const data = await agentService.UserInfo(userId, {  first_name, last_name, role, phone, company_name, address, city});
+
+    if (!data) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+
+
+
 
 module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent,
-   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent};
+   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo};

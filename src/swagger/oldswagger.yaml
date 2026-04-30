@@ -113,6 +113,10 @@ components:
         agent_id:     { type: integer, nullable: true }
         last_login_at: { type: string, format: date-time, nullable: true }
         created_at:   { type: string, format: date-time }
+         phone: { type: string, nullable: true }
+        company_name: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        city: { type: string, nullable: true }
 
     # ── Agent ─────────────────────────────────────────────────────────────────
     Agent:

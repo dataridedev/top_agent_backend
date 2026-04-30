@@ -88,17 +88,25 @@ const getAgentById = async (agentId) => {
 
 // ─── Create agent (admin / auto-seed) ────────────────────────────────────────
 const createAgent = async (data) => {
-  const { license_number, first_name, last_name, email, phone, brokerage,
-          bio, website, languages, specialties, areas_served } = data;
+  const { name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards} = data;
+  // const { license_number, first_name, last_name, email, phone, brokerage,
+  //         bio, website, languages, specialties, areas_served } = data;
 
   const { rows } = await query(
-    `INSERT INTO agents
-       (license_number, first_name, last_name, email, phone, brokerage, bio, website, languages, specialties, areas_served)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO agent_zillow_master
+       (name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      RETURNING *`,
-    [license_number, first_name, last_name, email, phone, brokerage, bio,
-     website, languages || [], specialties || [], areas_served || []]
+    [name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards]
   );
+  // const { rows } = await query(
+  //   `INSERT INTO agents
+  //      (license_number, first_name, last_name, email, phone, brokerage, bio, website, languages, specialties, areas_served)
+  //    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+  //    RETURNING *`,
+  //   [license_number, first_name, last_name, email, phone, brokerage, bio,
+  //    website, languages || [], specialties || [], areas_served || []]
+  // );
   return rows[0];
 };
 
@@ -133,32 +141,59 @@ const updateAgent = async (agentId, data) => {
 
 // ─── Claim agent profile ──────────────────────────────────────────────────────
 const claimAgent = async (agentId, userId, licenseNumber) => {
-  // Verify license matches
   const { rows: agentRows } = await query(
     'SELECT id, claimed_at, license_number FROM agent_zillow_master WHERE id = $1',
     [agentId]
   );
+
   if (!agentRows.length) throw new ApiError(404, 'Agent not found');
   if (agentRows[0].claimed_at) throw new ApiError(409, 'Profile already claimed');
+
   if (agentRows[0].license_number.toLowerCase() !== licenseNumber.toLowerCase()) {
     throw new ApiError(400, 'License number does not match');
   }
 
   await withTransaction(async (client) => {
     await client.query(
-      `UPDATE agent_zillow_master SET claimed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      `UPDATE agent_zillow_master 
+       SET claimed_at = NOW(), updated_at = NOW() 
+       WHERE id = $1`,
       [agentId]
     );
+
     await client.query(
-      `UPDATE users SET agent_id = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE users 
+       SET agent_id = $1, updated_at = NOW() 
+       WHERE id = $2`,
       [agentId, userId]
     );
   });
 
-  // Award founding agent points for profile completion
-  await awardPoints(agentId, 'PROFILE_COMPLETE', 'profile', agentId, 'Profile claimed and completed');
+  // 🔹 Award points (safe)
+  try {
+    await awardPoints(
+      agentId,
+      'PROFILE_COMPLETE',
+      'profile',
+      agentId,
+      'Profile claimed and completed'
+    );
+  } catch (err) {
+    console.error('awardPoints error:', err.message);
+  }
 
-  return getAgentById(agentId);
+  // 🔹 Fetch agent safely
+  try {
+    return await getAgentById(agentId);
+  } catch (err) {
+    console.error('getAgentById error:', err.message);
+
+    return {
+      success: true,
+      message: 'Profile claimed successfully',
+      agentId
+    };
+  }
 };
 
  // ─── get Claim agent profile ──────────────────────────────────────────────────────
@@ -403,40 +438,42 @@ const recalculateTiers = async () => {
 //     limit: safeLimit
 //   };
 // };
-  
+
 const getAllAgentService = async (
-  { searchKey },
+  { searchKey, sortOrder  },
   { page = 1, limit = 20 } = {}
 ) => {
-
   const conditions = [];
   const params = [];
   let p = 1;
 
-  const safeLimit = Number(limit) || 20;
-  const safeOffset = (Number(page) - 1) * safeLimit;
+  // ===============================
+  // SAFE PAGINATION
+  // ===============================
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.max(1, Number(limit) || 20);
+  const safeOffset = (safePage - 1) * safeLimit;
 
+  // ===============================
+  // SAFE SORT ORDER
+  // ===============================
+  const order = sortOrder?.toLowerCase() === "desc" ? "DESC" : "ASC";
 
-  const cleanSearch = searchKey?.trim().replace(/\s+/g, ' ');
+  // ===============================
+  // CLEAN SEARCH
+  // ===============================
+  const cleanSearch = searchKey?.trim().replace(/\s+/g, " ");
 
-
+  // ===============================
+  // SEARCH CONDITIONS
+  // ===============================
   if (cleanSearch) {
-
     conditions.push(`
       (
-    
         a.name ILIKE $${p}
-
-        -- ✅ Company search
         OR a.company_name ILIKE $${p}
-
-       
         OR a.city ILIKE $${p}
-
-   
         OR a.specialization ILIKE $${p}
-
-      
         OR a.about_heading ILIKE $${p}
         OR a.about_description ILIKE $${p}
       )
@@ -447,14 +484,14 @@ const getAllAgentService = async (
   }
 
   // ===============================
-  // WHERE
+  // WHERE CLAUSE
   // ===============================
   const where = conditions.length
-    ? `WHERE ${conditions.join(' AND ')}`
-    : '';
+    ? `WHERE ${conditions.join(" AND ")}`
+    : "";
 
   // ===============================
-  // MAIN QUERY
+  // MAIN DATA QUERY
   // ===============================
   const dataSql = `
     SELECT 
@@ -484,13 +521,21 @@ const getAllAgentService = async (
       a.email,
       a.office_number,
       a.license_number,
-      a.phone_number
+      a.phone_number,
+      a.total_hired,
+      a.avg_rating,
+      a.claimed_at
     FROM agent_zillow_master a
     ${where}
-    ORDER BY a.id DESC
+    ORDER BY 
+      a.claimed_at ${order}  NULLS LAST,   -- claimed first हमेशा
+      a.name ${order}                 -- dynamic asc/desc
     LIMIT $${p} OFFSET $${p + 1}
   `;
 
+  // ===============================
+  // COUNT QUERY
+  // ===============================
   const countSql = `
     SELECT COUNT(*) 
     FROM agent_zillow_master a 
@@ -508,12 +553,11 @@ const getAllAgentService = async (
   return {
     success: true,
     agents: dataRes.rows,
-    total: parseInt(countRes.rows[0].count, 10),
-    page: Number(page),
-    limit: safeLimit
+    totalAgents: parseInt(countRes.rows[0].count, 10),
+    page: safePage,
+    limit: safeLimit,
   };
 };
-
 
 
 
@@ -593,8 +637,7 @@ const getAllAgentDetailsService = async (agentId) => {
 
 const getUserInfo = async (userId) => {
   const { rows } = await query(   
-    `SELECT id, email, first_name, last_name, role, avatar_url,
-            is_verified, agent_id, last_login_at, created_at
+    `SELECT *
      FROM users WHERE id = $1`,
     [userId]
   );
@@ -629,8 +672,71 @@ const UserAvatar = async (userId, file) => {
   return rows[0];
 };
 
+
+
+
+
+const UserInfo = async (userId, payload ) => {
+
+  // const { first_name, last_name, role,phone,company_name	,address,	city} = payload;
+  // 1. Check if user exists
+  const userResult = await query(
+    `SELECT * FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) {
+    throw new Error("User not found");
+  }
+
+  const existingUser = userResult.rows[0];
+
+  // 2. Merge old + new values
+  const updatedData = {
+    first_name: payload.first_name ?? existingUser.first_name,
+    last_name: payload.last_name ?? existingUser.last_name,
+    role: payload.role ?? existingUser.role,
+    phone: payload.phone ?? existingUser.phone,
+    company_name: payload.company_name ?? existingUser.company_name,
+    address: payload.address ?? existingUser.address,
+    city: payload.city ?? existingUser.city,
+  };
+
+  // 3. Update query
+  const { rows } = await query(
+    `UPDATE users 
+     SET first_name = $1,
+         last_name = $2,
+         role = $3,
+         phone = $4,
+         company_name = $5,
+         address = $6,
+         city = $7,
+         updated_at = NOW()
+     WHERE id = $8
+     RETURNING *`,
+    [
+      updatedData.first_name,
+      updatedData.last_name,
+      updatedData.role,
+      updatedData.phone,
+      updatedData.company_name,
+      updatedData.address,
+      updatedData.city,
+      userId
+    ]
+  );
+
+  return {message: "Data updated successfully"};
+};  
+
+
+
+
+
+
 module.exports = {
   searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
   claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,editClaimAgentByAdmin, getUserInfo
-  ,UserAvatar
+  ,UserAvatar, UserInfo
 };

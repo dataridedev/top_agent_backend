@@ -1499,6 +1499,99 @@ paths:
             example:
               success: false
               message: "Something went wrong"
+
+  /agents/updateinfo:
+  put:
+    tags: [Agents]
+    summary: Update agent information
+    description: Update logged-in agent profile details (partial update supported)
+
+    security:
+      - bearerAuth: []
+
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              first_name:
+                type: string
+                example: John
+              last_name:
+                type: string
+                example: Doe
+              phone:
+                type: string
+                example: "9876543210"
+              company_name:
+                type: string
+                example: ABC Realty
+              address:
+                type: string
+                example: MG Road, Nagpur
+              city:
+                type: string
+                example: Nagpur
+              role:
+                type: string
+                example: agent
+
+    responses:
+      '200':
+        description: User information updated successfully
+        content:
+          application/json:
+            example:
+              success: true
+              message: "User information updated successfully"
+              data:
+                id: 1
+                first_name: "John"
+                last_name: "Doe"
+                phone: "9876543210"
+
+      '400':
+        description: Bad request
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Invalid request data"
+
+      '401':
+        description: Unauthorized (No token or invalid token)
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Unauthorized"
+
+      '403':
+        description: Not authorized
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Access denied"
+
+      '404':
+        description: User not found
+        content:
+          application/json:
+            example:
+              success: false
+              message: "User not found"
+
+      '500':
+        description: Server error
+        content:
+          application/json:
+            example:
+              success: false
+              message: "Something went wrong"
+
   /agents/{agentId}/reviews:
     get:
       tags: [Agents]

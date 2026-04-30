@@ -15,16 +15,16 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 
 
 // ─── Signup ───────────────────────────────────────────────────────────────────
-const signup = async ({ email, password, first_name, last_name, role = 'consumer' }) => {
+const signup = async ({ email, password, first_name, last_name, role = 'consumer', phone, company_name, address, city }) => {
   const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
   if (existing.rows.length) throw new ApiError(409, 'Email already registered');
 
   const password_hash = await hash(password);
 
   const { rows } = await query(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id, email, first_name, last_name, role`,
-    [email, password_hash, first_name, last_name, role]
+    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone	,company_name	,address,	city)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
+    [email, password_hash, first_name, last_name, role, phone, company_name, address, city]
   );
   const user = rows[0];
 
@@ -837,4 +837,4 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 
 };
 
-module.exports = { signup, login, refreshTokens, logout, verifyEmail, forgotPassword, resetPassword, changePassword ,scrapeZillowAgentProvider};
+module.exports = { signup, login, refreshTokens, logout,socialAuth, verifyEmail, forgotPassword, resetPassword, changePassword ,scrapeZillowAgentProvider};

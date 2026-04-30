@@ -185,6 +185,63 @@ router.put(
 
 
 
+ /**
+ * @swagger
+ * /agent/updateinfo:
+ *   put:
+ *     summary: Update agent user information
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *                 example: John
+ *               last_name:
+ *                 type: string
+ *                 example: Doe
+ *               phone:
+ *                 type: string
+ *                 example: "9876543210"
+ *               company_name:
+ *                 type: string
+ *                 example: ABC Realty
+ *               address:
+ *                 type: string
+ *                 example: MG Road, Pune
+ *               city:
+ *                 type: string
+ *                 example: Pune
+ *               role:
+ *                 type: string
+ *                 example: agent
+ *     responses:
+ *       200:
+ *         description: User information updated successfully
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ */
+router.put(
+  '/updateinfo',
+  authenticate,
+  ctrl.updateuserinfo
+);
+
+
+
+
 
 /**
  * @swagger
