@@ -31,7 +31,7 @@ info:
     email: dev@topagents.ca
 
 servers:
-  - url: http://localhost:3000/api/v1
+  - url: http://localhost:2021/api/v1
     description: Local development
   - url: https://api.topagents.ca/api/v1
     description: Production
@@ -792,11 +792,10 @@ paths:
           description: Invalid credentials
 
   /auth/social-login:
-  post:
+   post:
     tags: [Auth]
     summary: Login with Google or Facebook
     description: Social login using OAuth provider token (Google/Facebook)
-
     requestBody:
       required: true
       content:
@@ -815,7 +814,6 @@ paths:
               token:
                 type: string
                 example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-
     responses:
       '200':
         description: Login successful, returns JWT tokens and user data
@@ -831,7 +829,6 @@ paths:
                   name: "John Doe"
                   email: "john@example.com"
                   provider: "google"
-
       '401':
         description: Invalid token or authentication failed
         content:
@@ -841,14 +838,12 @@ paths:
               message: "Invalid token"
 
   /auth/scrape-zillow-agent:
-  post:
+   post:
     tags: [Auth]
     summary: Scrape Zillow agent data (Admin only)
     description: Protected API for admin users only
-
     security:
       - bearerAuth: []
-
     responses:
       '200':
         description: Scraping successful
@@ -857,7 +852,6 @@ paths:
             example:
               success: true
               message: "Scraping completed successfully"
-
       '401':
         description: Unauthorized (No token or invalid token)
         content:
@@ -1083,14 +1077,13 @@ paths:
                   meta:
                     $ref: '#/components/schemas/PaginationMeta'
 
-    /agents/getclaimAgent:
-  get:
-    tags: [Agents]
-    summary: Get claimed agent profile (from token)
-    description: Returns logged-in agent profile based on JWT token
-    security:
+  /agents/getclaimAgent:
+    get:
+     tags: [Agents]
+     summary: Get claimed agent profile (from token)
+     description: Returns logged-in agent profile based on JWT token
+     security:
       - bearerAuth: []
-
     responses:
       '200':
         description: Agent profile fetched successfully
@@ -1103,7 +1096,6 @@ paths:
                 name: "John Doe"
                 email: "john@example.com"
                 role: "agent"
-
       '401':
         description: Unauthorized - Invalid or missing token
         content:
@@ -1112,8 +1104,8 @@ paths:
               success: false
               message: "Unauthorized"
 
-    /agents/getAllAgent:
-  get:
+  /agents/getAllAgent:
+   get:
     tags: [Agents]
     summary: Get all agent profiles
     description: Returns list of all agents with filters and pagination support
@@ -1123,62 +1115,52 @@ paths:
         schema:
           type: string
         description: Search by name or brokerage
-
       - in: query
         name: city
         schema:
           type: string
-
       - in: query
         name: province
         schema:
           type: string
-
       - in: query
         name: min_rating
         schema:
           type: number
           minimum: 1
           maximum: 5
-
       - in: query
         name: tier
         schema:
           type: string
           enum: [BRONZE, SILVER, GOLD, PLATINUM, DIAMOND, LUMINARY]
-
       - in: query
         name: specialties
         schema:
           type: string
         description: Comma-separated list
-
       - in: query
         name: languages
         schema:
           type: string
         description: Comma-separated list
-
       - in: query
         name: sort
         schema:
           type: string
           enum: [rating, reviews, recent, points]
           default: rating
-
       - in: query
         name: page
         schema:
           type: integer
           default: 1
-
       - in: query
         name: limit
         schema:
           type: integer
           default: 20
           maximum: 100
-
     responses:
       '200':
         description: Success
@@ -1196,12 +1178,11 @@ paths:
                 meta:
                   $ref: '#/components/schemas/PaginationMeta'
     
-    /agent/getuserinfo:
-  get:
+  /agent/getuserinfo:
+   get:
     tags: [Agents]
     summary: Get full agent profile by ID
     description: Returns agent profile using agentId query parameter
-
     parameters:
       - in: query
         name: agentId
@@ -1209,10 +1190,8 @@ paths:
         schema:
           type: integer
         description: Unique agent ID
-
     security:
       - bearerAuth: []
-
     responses:
       '200':
         description: User profile fetched successfully
@@ -1225,7 +1204,6 @@ paths:
                 name: "John Doe"
                 email: "john@example.com"
                 city: "Nagpur"
-
       '404':
         description: User not found
         content:
@@ -1233,7 +1211,6 @@ paths:
             example:
               success: false
               message: "User not found"
-
       '401':
         description: Unauthorized
         content:
@@ -1314,7 +1291,7 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   /agents/{agentId}/claim:
-    post:
+   post:
       tags: [Agents]
       summary: Claim an unclaimed agent profile
       security:
@@ -1345,7 +1322,7 @@ paths:
           description: Profile already claimed
 
   /agents/{agentId}/stats:
-    get:
+   get:
       tags: [Agents]
       summary: Get agent performance statistics
       parameters:
@@ -1411,8 +1388,8 @@ paths:
                           current_tier:
                             type: string
 
-    /agents/details/{agentId}:
-  get:
+  /agents/details/{agentId}:
+   get:
     tags: [Agents]
     summary: Get full agent profile by ID
     description: Returns single agent details using agentId
@@ -1423,7 +1400,6 @@ paths:
         schema:
           type: integer
         description: Unique Agent ID
-
     responses:
       '200':
         description: Agent profile
@@ -1435,7 +1411,6 @@ paths:
                 id: 1
                 name: "John Doe"
                 city: "Nagpur"
-
       '404':
         description: Agent not found
         content:
@@ -1445,14 +1420,12 @@ paths:
               message: "Agent not found"
 
   /agent/editavatar:
-  put:
+   put:
     tags: [Agents]
     summary: Edit agent avatar
     description: Update logged-in agent avatar image using file upload
-
     security:
       - bearerAuth: []
-
     requestBody:
       required: true
       content:
@@ -1464,7 +1437,6 @@ paths:
                 type: string
                 format: binary
                 description: Upload agent avatar image
-
     responses:
       '200':
         description: Avatar updated successfully
@@ -1475,7 +1447,6 @@ paths:
               message: "Avatar updated successfully"
               data:
                 avatar_url: "https://s3-bucket-url.com/image.jpg"
-
       '403':
         description: Not authorized
         content:
@@ -1483,7 +1454,6 @@ paths:
             example:
               success: false
               message: "Access denied"
-
       '401':
         description: Unauthorized (No token or invalid token)
         content:
@@ -1491,7 +1461,6 @@ paths:
             example:
               success: false
               message: "Unauthorized"
-
       '500':
         description: Server error
         content:
@@ -1501,14 +1470,12 @@ paths:
               message: "Something went wrong"
 
   /agents/updateinfo:
-  put:
+   put:
     tags: [Agents]
     summary: Update agent information
     description: Update logged-in agent profile details (partial update supported)
-
     security:
       - bearerAuth: []
-
     requestBody:
       required: true
       content:
@@ -1537,7 +1504,6 @@ paths:
               role:
                 type: string
                 example: agent
-
     responses:
       '200':
         description: User information updated successfully
@@ -1551,7 +1517,6 @@ paths:
                 first_name: "John"
                 last_name: "Doe"
                 phone: "9876543210"
-
       '400':
         description: Bad request
         content:
@@ -1559,7 +1524,6 @@ paths:
             example:
               success: false
               message: "Invalid request data"
-
       '401':
         description: Unauthorized (No token or invalid token)
         content:
@@ -1567,7 +1531,6 @@ paths:
             example:
               success: false
               message: "Unauthorized"
-
       '403':
         description: Not authorized
         content:
@@ -1575,7 +1538,6 @@ paths:
             example:
               success: false
               message: "Access denied"
-
       '404':
         description: User not found
         content:
@@ -1583,7 +1545,6 @@ paths:
             example:
               success: false
               message: "User not found"
-
       '500':
         description: Server error
         content:
@@ -1788,7 +1749,7 @@ paths:
         '200':
           description: Platform disconnected
 
-  # ─── REVIEWS ───────────────────────────────────────────────────────────────
+  # ─── REVIEWS ─────────────────────────────────────────
 
   /reviews:
     post:
@@ -1834,63 +1795,21 @@ paths:
       responses:
         '200':
           description: Import summary
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      imported:
-                        type: integer
-                      skipped:
-                        type: integer
-                      total:
-                        type: integer
 
   /reviews/add:
-  post:
-    tags: [Reviews]
-    summary: Add review (custom API)
-    description: Allows user to add a review for an agent
-
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ReviewCreate'
-
-    responses:
-      '201':
-        description: Review added successfully
+    post:
+      tags: [Reviews]
+      summary: Add review (custom API)
+      description: Allows user to add a review for an agent
+      requestBody:
+        required: true
         content:
           application/json:
-            example:
-              success: true
-              message: "Review added successfully"
-              data:
-                id: 1
-                rating: 5
-                comment: "review  add successfully"
-      '404':
-        description: Agent not found
-        content:
-          application/json:
-            example:
-              success: false
-              message: "Agent not found"
-
-      '422':
-        description: Validation error
-        content:
-          application/json:
-            example:
-              success: false
-              message: "Validation failed"
+            schema:
+              $ref: '#/components/schemas/ReviewCreate'
+      responses:
+        '201':
+          description: Review added successfully
 
   /reviews/{reviewId}:
     get:
@@ -1905,17 +1824,6 @@ paths:
       responses:
         '200':
           description: Review object
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    $ref: '#/components/schemas/Review'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /reviews/{reviewId}/reply:
     post:
@@ -1939,15 +1847,9 @@ paths:
               properties:
                 response:
                   type: string
-                  maxLength: 500
-                  example: Thank you for your kind words!
       responses:
         '200':
-          description: Reply saved and 10 points awarded
-        '403':
-          description: You do not own this agent profile
-        '404':
-          $ref: '#/components/responses/NotFound'
+          description: Reply saved
 
   /reviews/{reviewId}/report:
     post:
@@ -1961,26 +1863,14 @@ paths:
             type: integer
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reason]
-              properties:
-                reason:
-                  type: string
-                  enum: [fake, inappropriate, wrong_person, spam, other]
-                description:
-                  type: string
-                  maxLength: 1000
       responses:
         '200':
-          description: Review reported for moderation
+          description: Review reported
 
   /reviews/{reviewId}/verify:
     patch:
       tags: [Reviews]
-      summary: Admin verifies a native review and awards 50 points to the agent
+      summary: Admin verifies a review
       security:
         - bearerAuth: []
       parameters:
@@ -1991,9 +1881,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: Review verified and points awarded
-        '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Review verified
 
   # ─── REFERRALS ─────────────────────────────────────────────────────────────
 
@@ -2291,7 +2179,7 @@ paths:
                     $ref: '#/components/schemas/PaginationMeta'
   
   /cities/getcity:
-  get:
+   get:
     tags: [Cities]
     summary: List all cities
     description: Fetches all available cities
@@ -2308,12 +2196,11 @@ paths:
                 - "Sterling"
                 - "Evanston"
 
-/cities/getcityAgents:
-  get:
-    tags: [Cities]
-    summary: Get city-wise agents with pagination
-    description: Returns list of cities with agent data
-
+   /cities/getcityAgents:
+    get:
+     tags: [Cities]
+     summary: Get city-wise agents with pagination
+     description: Returns list of cities with agent data
     parameters:
       - in: query
         name: city

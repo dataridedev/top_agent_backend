@@ -117,6 +117,63 @@ router.get(
 
 /**
  * @swagger
+ * /agent/getclaimAgent:
+ *   get:
+ *     summary: Get claimed agent profile (from token)
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Agent profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  '/getActiveclaimAgent',
+  authenticate,
+  authorize('agent', 'consumer', 'admin'),
+  ctrl.ActiveclaimAgent
+);
+
+
+
+/**
+ * @swagger
+ * /agents/unclaimed:
+ *   get:
+ *     summary: Get all unclaimed agents
+ *     description: Returns list of agents whose profiles are not yet claimed
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of unclaimed agents
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data: [
+ *                 {
+ *                   id: 1,
+ *                   name: "John Doe",
+ *                   claimed_at: null
+ *                 }
+ *               ]
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  '/unclaimed',
+  authenticate,
+  authorize('agent', 'consumer', 'admin'),
+  ctrl.unclaimAllAgent
+);
+
+
+/**
+ * @swagger
  * /agents/getAllAgent:
  *   get:
  *     summary: Get all agent profiles

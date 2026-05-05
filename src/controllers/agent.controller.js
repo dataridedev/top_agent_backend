@@ -43,6 +43,29 @@ const claimAgent = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const ActiveclaimAgent = async (req, res, next) => {
+ try {
+    const { role } = req.user;
+
+    // 🔹 query params से values लो
+    const { page , limit , search = "" } = req.query;
+
+    let data;
+
+    if (role === 'admin') {
+      data = await agentService.ActiveAgent(page, limit, search);
+    } else {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    success(res, data);
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 const getclaim = async (req, res, next) => {
   try {
     const { role} = req.user;
@@ -59,20 +82,41 @@ const getclaim = async (req, res, next) => {
     //   return res.status(403).json({ message: 'Forbidden' });
     // }
 
-    return res.json({
-      success: true,
-      data
-    });
+    success(res,data );
 
   } catch (err) {
     next(err);
   }
 };
 
+const unclaimAllAgent = async (req, res, next) => {
+  try {
+    const { role } = req.user;
+
+    // 🔹 query params से values लो
+    const { page , limit , search = "" } = req.query;
+
+    let data;
+
+    if (role === 'admin') {
+      data = await agentService.unclaimAgent(page, limit, search);
+    } else {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    success(res, data);
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 const editClaimAgent = async (req, res, next) => {
   try {
     const { role } = req.user;
     const agent_verified = req.body.agent_verified;
+     const userId = req.body.userId;
 
     // ✅ get agentId properly
     const agentId = parseInt(req.params.agentId, 10);
@@ -94,7 +138,7 @@ const editClaimAgent = async (req, res, next) => {
     }
 
     // ✅ Call service
-    const data = await agentService.editClaimAgentByAdmin(agentId, agent_verified);
+    const data = await agentService.editClaimAgentByAdmin(agentId, agent_verified,userId);
 
     // ✅ Handle not found / already verified
     if (!data) {
@@ -249,4 +293,4 @@ const updateuserinfo = async (req, res, next) => {
 
 
 module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent,
-   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo};
+   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent};

@@ -25,7 +25,7 @@ const listCities = async ({ province = 'BC', region }, { limit, offset }) => {
   return { cities: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
 };
 
-const getcityAgents = async (slug, { search, page = 1, limit = 10 } = {}) => {
+const getcityAgents = async (slug, { search, page = 1, limit } = {}) => {
   try {
 
     const conditions = [];
@@ -57,16 +57,17 @@ const getcityAgents = async (slug, { search, page = 1, limit = 10 } = {}) => {
   
     const cityAgents = await query(
       `SELECT  
-        a.id,
-        a.name,
-        a.company_name,
-        a.profile_url,
-        a.about_heading,
-        a.about_description,
-        a.city
-       FROM agent_zillow_master a
-       WHERE a.city ILIKE $1`,
-      [slug]
+    a.id,
+    a.name,
+    a.company_name,
+    a.profile_url,
+    a.about_heading,
+    a.about_description,
+    a.city
+FROM agent_zillow_master a
+WHERE a.city ILIKE $1
+LIMIT $2;`,
+    [slug, limit]
     );
 
     const countParams = params.slice(0, params.length - 2);
