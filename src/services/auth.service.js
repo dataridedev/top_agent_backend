@@ -42,7 +42,7 @@ const signup = async ({ email, password, first_name, last_name, role = 'consumer
 // ─── Login ────────────────────────────────────────────────────────────────────
 const login = async ({ email, password }) => {
   const { rows } = await query(
-    'SELECT id, email, password_hash, first_name, last_name, role,avatar_url, is_active FROM users WHERE email = $1',
+    'SELECT id, email, password_hash, first_name, last_name, role,avatar_url, is_active,agent_id FROM users WHERE email = $1',
     [email]
   );
   if (!rows.length) throw new ApiError(401, 'Invalid email or password');
@@ -57,8 +57,8 @@ const login = async ({ email, password }) => {
   // Update last login
   await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
-  const accessToken  = signAccess(user.id, user.first_name, user.last_name, user.role,user.avatar_url);
-  const refreshToken = signRefresh(user.id, user.first_name, user.last_name, user.role,user.avatar_url);
+  const accessToken  = signAccess(user.id, user.first_name, user.last_name, user.role,user.avatar_url,user.agent_id);
+  const refreshToken = signRefresh(user.id, user.first_name, user.last_name, user.role,user.avatar_url,user.agent_id);
 
   // Persist refresh token
   await query(

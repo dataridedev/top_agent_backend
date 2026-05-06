@@ -4,6 +4,84 @@ const { ApiError }               = require('../utils/errors');
 const { awardPoints }            = require('../utils/points');
 const { v4: uuidv4 }             = require('uuid');
 
+
+
+const verifyscrapreview = async (userId, search, limit, page) => {
+  try {
+    // ===============================
+    // SAFE PAGINATION
+    // ===============================
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.max(1, Number(limit) || 10);
+    const safeOffset = (safePage - 1) * safeLimit;
+
+    // ===============================
+    // CLEAN SEARCH
+    // ===============================
+    const cleanSearch =
+      typeof search === "string" ? search.trim().replace(/\s+/g, " ") : "";
+
+    const conditions = [`"user_id" = $1`];
+    const params = [userId];
+    let p = 2;
+
+    // ===============================
+    // SEARCH CONDITION
+    // ===============================
+    if (cleanSearch) {
+      conditions.push(`
+        LOWER(reviewer_name) LIKE LOWER($${p})
+      `);
+      params.push(`%${cleanSearch}%`);
+      p++;
+    }
+
+    // ===============================
+    // WHERE CLAUSE
+    // ===============================
+    const where = `WHERE ${conditions.join(" AND ")}`;
+
+    // ===============================
+    // DATA QUERY
+    // ===============================
+    const dataSql = `
+      SELECT *,TO_CHAR(rating_posted_date, 'YYYY-MM-DD') AS rating_posted_date
+      FROM reviews_zillow_master
+      ${where}
+      ORDER BY id DESC
+      LIMIT $${p} OFFSET $${p + 1}
+    `;
+
+    // ===============================
+    // COUNT QUERY
+    // ===============================
+    const countSql = `
+      SELECT COUNT(*)
+      FROM reviews_zillow_master
+      ${where}
+    `;
+
+    // ===============================
+    // EXECUTION
+    // ===============================
+    const [countRes, dataRes] = await Promise.all([
+      query(countSql, params),
+      query(dataSql, [...params, safeLimit, safeOffset]),
+    ]);
+
+    return {
+      success: true,
+      data: dataRes.rows,
+      page: safePage,
+      limit: safeLimit,
+      count: parseInt(countRes.rows[0].count, 10),
+    };
+
+  } catch (error) {
+    console.error("verifyscrapreview error:", error);
+    throw error;
+  }
+};
 // ─── Create review ────────────────────────────────────────────────────────────
 const createReview = async (data) => {
   const {
@@ -129,9 +207,9 @@ const isPlatformConnectionNew = async (agentId, platform) => {
 };
 
 // ─── Verify review (admin/moderation) ────────────────────────────────────────
-const verifyReview = async (reviewId, adminId) => {
+const verifyReview = async (reviewId, userId,is_expected) => {
   const { rows } = await query(
-    `UPDATE reviews SET verified = true WHERE id = $1 RETURNING *`,
+    `UPDATE reviews_zillow_master SET is_expected  = ${is_expected} WHERE id = $1 RETURNING *`,
     [reviewId]
   );
   if (!rows.length) throw new ApiError(404, 'Review not found');
@@ -203,4 +281,4 @@ const getReviewById = async (reviewId) => {
   return rows[0];
 };
 
-module.exports = { createReview, verifyReview, replyToReview, reportReview, bulkImportReviews, getReviewById,addAgentReview };
+module.exports = { createReview, verifyReview, replyToReview, reportReview, bulkImportReviews, getReviewById,addAgentReview,verifyscrapreview };

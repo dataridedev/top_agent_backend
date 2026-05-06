@@ -9,13 +9,43 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const axios = require("axios");
 const cheerio = require("cheerio");
-const puppeteer = require('puppeteer');
-const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+// const puppeteer = require('puppeteer');
+// const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { autoScroll } = require("../utils/scraper");
 
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+
+puppeteer.use(StealthPlugin());
+
+const agentScrapPlatform = async (id) => {
+  try {
+    console.log("agentScrapPlatform :::");
+
+    const result = await query(
+      `   SELECT 
+  sr.*,
+  TO_CHAR(sr.created_at, 'YYYY-MM-DD') AS created_at
+FROM scrape_requests sr
+WHERE sr."user_id"='${id}'
+ORDER BY sr.created_at DESC
+LIMIT 1;`
 
 
-const scrapeAgentRouter = async ({ url }) => {
+    );
+
+    return {
+      success: true,
+       data: result.rows[0]
+    };
+
+  } catch (error) {
+    console.error("agentScrapPlatform Error:", error);
+    throw error;
+  }
+};
+
+const scrapeAgentRouter = async ({ url,scrapeId,userId }) => {
   console.log("scrapeAgentRouter called with URL:", url);
   if (!url || typeof url !== "string") {
     throw new Error("Valid URL is required");
@@ -29,7 +59,7 @@ const scrapeAgentRouter = async ({ url }) => {
     // =========================
     if (cleanUrl.includes("zillow")) {
       console.log("➡️ Zillow provider selected");
-      return await scrapeZillowAgentProvider({ url });
+      return await scrapeZillowAgentProvider({ url,scrapeId,userId });
     }
 
     // =========================
@@ -40,7 +70,7 @@ const scrapeAgentRouter = async ({ url }) => {
       cleanUrl.includes("ratemyagent")
     ) {
       console.log("➡️ RateMyAgent provider selected");
-      return await scrapeAndSaveProvider({ url });
+      return await scrapeAndSaveProvider({ url,scrapeId ,userId});
     }
 
     // =========================
@@ -487,7 +517,7 @@ const formatDate = (rawDate) => {
   return date.toISOString().split("T")[0];
 };
 
-const scrapeAndSaveProvider = async ({ url }) => {
+const scrapeAndSaveProvider = async ({ url,scrapeId ,userId}) => {
   console.log("scrapeAndSaveProvider called with URL:", url);
   if (!url || typeof url !== "string") {
     throw new Error("Valid URL is required");
@@ -498,6 +528,14 @@ const scrapeAndSaveProvider = async ({ url }) => {
   let browser, page;
 
   try {
+      await query(
+          `UPDATE scrape_requests 
+           SET status = 'in_progress', updated_at = NOW()
+           WHERE id = $1`,
+          [scrapeId]
+        );
+
+
     browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -608,21 +646,64 @@ const scrapeAndSaveProvider = async ({ url }) => {
 
 
      const agent = {
-      name: $("h1").first().text().trim(),
-      title: $("h4:contains('Own words')").first().text().trim() || null,
+      // name: $("h1").first().text().trim(),
+ 
+   name: $("h1")
+    .contents()
+    .filter(function () {
+      return this.type === "text";
+    })
+    .first()
+    .text()
+    .trim(),
 
-      description: (() => {
-        let desc = null;
+  company_name: $("h1 span").text().trim(),
+      // about_h: $("h4:contains('Own words')").first().text().trim() || null,
 
-        $("h4").each((i, el) => {
-          const text = $(el).text().toLowerCase();
-          if (text.includes("own words")) {
-            desc = $(el).next("div").text().trim().replace(/\s+/g, " ");
-          }
-        });
+      // about_d: (() => {
+      //   let desc = null;
 
-        return desc;
-      })(),
+      //   $("h4").each((i, el) => {
+      //     const text = $(el).text().toLowerCase();
+      //     if (text.includes("own words")) {
+      //       desc = $(el).next("div").text().trim().replace(/\s+/g, " ");
+      //     }
+      //   });
+
+      //   return desc;
+      // })(),
+
+       about_h : $("h4")
+  .filter((i, el) => $(el).text().toLowerCase().includes("own words"))
+  .first()
+  .text()
+  .trim() || null,
+ about_d : (() => {
+  let desc = null;
+
+  $("h4").each((i, el) => {
+    const text = $(el).text().toLowerCase();
+
+    if (text.includes("own words")) {
+      desc = $(el)
+        .nextAll("div")   // safer than next()
+        .first()
+        .text()
+        .trim()
+        .replace(/\s+/g, " ");
+    }
+  });
+
+  return desc;
+})(),
+
+        // about_d: $("h4:contains('Own words')")
+        // .next()
+        // .text()
+        // .trim()
+        // .replace(/\s+/g, " ") || null,
+            
+    // let custom_title = null;
 
       company: $("td:contains('Company')").next().text().trim() || null,
       team: $("td:contains('Team')").next().text().trim() || null,
@@ -649,7 +730,11 @@ const scrapeAndSaveProvider = async ({ url }) => {
       phone_number:
         $("a[href^='tel:']").attr("href")?.replace("tel:", "") || null,
 
-      primary_city: $(".agent-top-rated-cities a").first().text().trim() || null,
+      // city: $(".agent-top-rated-cities a").first().text().trim() || null,
+       city : $("p.agent-top-rated-cities.atf-agent_city a")
+  .first()
+  .text()
+  .trim() || null,
 
       total_clients: parseInt($("#count_up").text()) || 0,
 
@@ -666,6 +751,7 @@ const scrapeAndSaveProvider = async ({ url }) => {
       awards: [],
       reviews: [],
       source_url: trimmedUrl,
+     userId:userId
     };
 
     // =========================
@@ -707,7 +793,7 @@ const scrapeAndSaveProvider = async ({ url }) => {
       const $el = $(el);
 
       const review_description = $el.find(".review-comment p").first().text().trim();
-      if (!description) return;
+      if (!review_description) return;
 
       reviews.push({
         review_title: $el.find("h4").first().text().trim(),
@@ -762,7 +848,8 @@ const scrapeAndSaveProvider = async ({ url }) => {
 ),  
 
         is_verified: $el.find("img[src*='verified']").length > 0,
-        review_source : "RateMyAgent"
+        review_source : "RateMyAgent",
+          userId:userId
       });
     });
 
@@ -770,16 +857,32 @@ const scrapeAndSaveProvider = async ({ url }) => {
     // ❌ NO DB INSERT HERE
     // =========================
 
+      await query(
+          `UPDATE scrape_requests 
+           SET status = 'in_progress', updated_at = NOW()
+           WHERE id = $1`,
+          [scrapeId]
+        );
+
   
 return await insertZillowDataProvider({
   agent,
   reviews,
   teamMembers: [],   // ✅ FIX
-  properties: []     // ✅ FIX
+  properties: [] ,
+  scrapeId  ,
+userId
 });
 
   } catch (err) {
     console.error(err);
+     await query(
+          `UPDATE scrape_requests 
+           SET status = 'failed', updated_at = NOW()
+           WHERE id = $1`,
+          [scrapeId]
+        );
+
     throw new Error("Scraping failed: " + err.message);
   } finally {
     if (page) await page.close();
@@ -1175,42 +1278,119 @@ return await insertZillowDataProvider({
 
 
 
-const scrapeZillowAgentProvider = async ({ url }) => {
-    let browser, page;
+const scrapeZillowAgentProvider = async ({ url,scrapeId }) => {
+    // let browser, page;
 
-    const safeNum = (v) => v ? parseFloat(String(v).replace(/[^0-9.]/g, "")) || null : null;
-    const safeInt = (v) => v ? parseInt(String(v).replace(/[^0-9]/g, "")) || null : null;
+    // const safeNum = (v) => v ? parseFloat(String(v).replace(/[^0-9.]/g, "")) || null : null;
+    // const safeInt = (v) => v ? parseInt(String(v).replace(/[^0-9]/g, "")) || null : null;
 
-    const cleanPrice = (str) => {
-        if (!str) return null;
-        let val = safeNum(str);
-        if (!val) return null;
+    // const cleanPrice = (str) => {
+    //     if (!str) return null;
+    //     let val = safeNum(str);
+    //     if (!val) return null;
 
-        if (str.includes('M')) val *= 1000000;
-        else if (str.includes('K')) val *= 1000;
+    //     if (str.includes('M')) val *= 1000000;
+    //     else if (str.includes('K')) val *= 1000;
 
-        return val;
-    };
+    //     return val;
+    // };
 
-    try {
-        browser = await puppeteer.launch({
-            headless: "new",
-            args: ["--no-sandbox", "--disable-setuid-sandbox"]
-        });
+    // try {
+    // await query(
+    //   `UPDATE scrape_requests 
+    //    SET status = 'in_progress', updated_at = NOW()
+    //    WHERE id = $1`,
+    //   [scrapeId]
+    // );
 
-        page = await browser.newPage();
+    //     browser = await puppeteer.launch({
+    //         headless: "new",
+    //         args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    //     });
 
-        await page.setDefaultNavigationTimeout(0);
-        await page.setDefaultTimeout(0);
+    //     page = await browser.newPage();
 
-        await page.setUserAgent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
-        );
+    //     await page.setDefaultNavigationTimeout(0);
+    //     await page.setDefaultTimeout(0);
 
-        await page.goto(url, { waitUntil: "domcontentloaded" });
+    //     await page.setUserAgent(
+    //         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+    //     );
 
-        const html = await page.content();
-        const $ = cheerio.load(html);
+    //     await page.goto(url, { waitUntil: "domcontentloaded" });
+
+    //     const html = await page.content();
+    //     const $ = cheerio.load(html);
+
+    let browser;
+
+  try {
+    console.log("🚀 START SCRAPING");
+
+    // 🔹 in_progress
+    await query(
+      `UPDATE scrape_requests 
+       SET status = 'in_progress', updated_at = NOW()
+       WHERE id = $1`,
+      [scrapeId]
+    );
+
+    browser = await puppeteer.launch({
+      headless: false, // 🔥 first test false
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-blink-features=AutomationControlled"
+      ]
+    });
+
+    const page = await browser.newPage();
+
+    // 🔹 headers + user agent
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+    );
+
+    await page.setExtraHTTPHeaders({
+      "accept-language": "en-US,en;q=0.9"
+    });
+
+    console.log("🌐 Opening URL...");
+    await page.goto(url, { waitUntil: "networkidle2" });
+
+    // 🔹 human-like delay
+    await page.waitForTimeout(4000);
+
+    // 🔹 scroll
+    await page.evaluate(() => {
+      window.scrollBy(0, window.innerHeight);
+    });
+
+ await new Promise(res => setTimeout(res, 2000));
+
+    console.log("📄 Getting HTML...");
+    const html = await page.content();
+
+    // ❌ CAPTCHA DETECT
+    if (
+      html.includes("Access to this page has been denied") ||
+      html.includes("px-captcha")
+    ) {
+      console.log("❌ CAPTCHA BLOCKED");
+
+      await query(
+        `UPDATE scrape_requests 
+         SET status = 'failed', updated_at = NOW()
+         WHERE id = $1`,
+        [scrapeId]
+      );
+
+      throw new Error("Blocked by CAPTCHA");
+    }
+
+    const $ = cheerio.load(html);
+
+    console.log("✅ Page Loaded Successfully");
 
         const rangeText =
   $("span:contains('price range')").prev().text() || "";
@@ -1243,7 +1423,8 @@ const price_max = cleanPrice(rangeParts[1]);
             price_max,
             about_h: $("h2:contains('Get to know')").text().trim(),
             about_d: $(".dcLnWx p").text().trim(),
-            source_url: url
+            source_url: url,
+            userId:userId
         };
 
         // =========================
@@ -1304,11 +1485,19 @@ const price_max = cleanPrice(rangeParts[1]);
             agent,
             reviews,
             teamMembers,
-            properties
+            properties,
+            scrapeId
         });
 
     } catch (err) {
         console.error("Scrape Error:", err);
+            await query(
+          `UPDATE scrape_requests 
+           SET status = 'failed', updated_at = NOW()
+           WHERE id = $1`,
+          [scrapeId]
+        );
+
         throw err;
     } finally {
         if (browser) await browser.close();
@@ -1316,7 +1505,7 @@ const price_max = cleanPrice(rangeParts[1]);
 };
 
 
-const insertZillowDataProvider = async ({ agent, reviews, teamMembers, properties }) => {
+const insertZillowDataProvider = async ({ agent, reviews, teamMembers, properties,scrapeId,userId }) => {
     try {
         await query("BEGIN");
 
@@ -1356,13 +1545,14 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
                 accepting_new_clients,
                 service_areas,
                 awards,
-                source_url
+                source_url,
+                user_id 
             )
             VALUES (
                 $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
                 $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
                 $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-                $31,$32
+                $31,$32,$33
             )
             RETURNING id`,
             [
@@ -1397,7 +1587,9 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
                 agent.accepting_new_clients ?? null,
                 agent.service_areas ? JSON.stringify(agent.service_areas) : null,
                 agent.awards ? JSON.stringify(agent.awards) : null,
-                agent.source_url || null
+                agent.source_url || null,
+                agent.userId || null
+
             ]
         );
 
@@ -1444,12 +1636,13 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
                     rating_posted_date,
                     is_verified,
                     verified_image_url,
-                    source_url
+                    source_url,
+                   user_id 
                 )
                 VALUES (
                     $1,$2,$3,$4,$5,$6,$7,$8,
                     $9,$10,$11,$12,$13,$14,$15,$16,
-                    $17,$18,$19,$20,$21,$22,$23
+                    $17,$18,$19,$20,$21,$22,$23,$24
                 )
                 ON CONFLICT DO NOTHING`,
                 [
@@ -1475,7 +1668,9 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
                     r.rating_posted_date || null,
                     r.is_verified ?? null,
                     r.verified_image_url || null,
-                    r.source_url || null
+                    r.source_url || null,
+                    r.userId || null
+                    
                 ]
             );
         }
@@ -1485,15 +1680,17 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
         // =========================
         for (const t of teamMembers) {
             await query(
-                `INSERT INTO team_members (agent_id, member_name, rating, sales_range_min, sales_range_max, total_sales)
-                 VALUES ($1,$2,$3,$4,$5,$6)`,
+                `INSERT INTO team_members (agent_id, member_name, rating, sales_range_min, sales_range_max, total_sales,user_id )
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
                 [
                     agentId,
                     t.member_name || null,
                     t.rating || null,
                     t.sales_range_min || null,
                     t.sales_range_max || null,
-                    t.total_sales || null
+                    t.total_sales || null,
+                    t.userId || null,
+
                 ]
             );
         }
@@ -1514,9 +1711,10 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
                     listing_price,
                     image_urls,
                     property_url,
-                    sold_date
+                    sold_date,
+                    user_id 
                 )
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
                 ON CONFLICT (property_url)
                 DO UPDATE SET status = EXCLUDED.status, listing_price = EXCLUDED.listing_price`,
                 [
@@ -1530,12 +1728,20 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
                     p.listing_price || null,
                     p.image_url ? [p.image_url] : null,
                     p.property_url || null,
-                    p.sold_date || null
+                    p.sold_date || null,
+                    p.userId || null
                 ]
             );
         }
 
         await query("COMMIT");
+
+            await query(
+          `UPDATE scrape_requests 
+           SET status = 'completed', updated_at = NOW()
+           WHERE id = $1`,
+          [scrapeId]
+        );
 
         return {
             success: true,
@@ -1547,6 +1753,13 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
 
     } catch (err) {
         await query("ROLLBACK");
+            await query(
+          `UPDATE scrape_requests 
+           SET status = 'failed', updated_at = NOW()
+           WHERE id = $1`,
+          [scrapeId]
+        );
+
         console.error("Insert Error:", err);
         throw err;
     }
@@ -1556,6 +1769,96 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
 
 
 
+// const scrapeAgentData =async function scrapeAgentsData(city) {
+const scrapeAgentData =async ({city}) => {
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+
+  const url = `https://www.zillow.com/professionals/real-estate-agent-reviews/${city.replace(/ /g, "-")}/`;
+
+  await page.goto(url, { waitUntil: "networkidle2", timeout: 0 });
+
+  let agents = [];
+  let hasNextPage = true;
+
+  // while (hasNextPage) {
+  //   await page.waitForSelector(".StyledCard-c11n-8-101-3__sc-1w6p0lv-0");
+
+  //   // const names = await page.evaluate(() => {
+  //   //   return Array.from(document.querySelectorAll("a"))
+  //   //     .map(el => el.innerText.trim())
+  //   //     .filter(text => text.length > 0);
+  //   // });
+
+  //   // agents.push(...names);
+
+  //   // const nextBtn = await page.$('a[title="Next page"]');
+
+  //    const agents = await page.evaluate(() => {
+  //     return Array.from(document.querySelectorAll("a"))
+  //       .map(el => el.innerText.trim())
+  //       .filter(text => text.length > 0);
+  //   });
+
+  //   for (let name of agents) {
+  //     await insertAgent({
+  //       name,
+  //       city
+  //     });
+  //   }
+
+  while (hasNextPage) {
+  // ✅ Wait for stable element
+  await page.waitForSelector("a[href*='/profile/']", {
+    timeout: 60000
+  });
+
+  const agents = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll("a[href*='/profile/']"))
+      .map(el => el.innerText.trim())
+      .filter(text => text.length > 0);
+  });
+
+  for (let name of agents) {
+    await insertAgent({
+      name,
+      city
+    });
+  }
+
+  console.log(`Inserted ${agents.length} agents`);
+
+    console.log(`Inserted ${agents.length} agents for ${city}`);
+
+    const nextBtn = await page.$('a[title="Next page"]');
+
+    if (nextBtn) {
+      await Promise.all([
+        page.click('a[title="Next page"]'),
+        page.waitForNavigation({ waitUntil: "networkidle2" })
+      ]);
+    } else {
+      hasNextPage = false;
+    }
+  }
+
+  await browser.close();
+  return agents;
+}
+
+
+
+
+const insertAgent= async ({agent})=> {
+  const query = `
+    INSERT INTO public.cities_agents (name, city)
+    VALUES ($1, $2)
+  `;
+
+  const values = [agent.name, agent.city];
+
+  await pool.query(query, values);
+}
 
 
 
@@ -1567,12 +1870,88 @@ const insertZillowDataProvider = async ({ agent, reviews, teamMembers, propertie
 
 
 
+const APIFY_TOKEN = process.env.APIFY_TOKEN;
+const ACTOR_ID = "sovereigntaylor/zillow-agent-scraper"; 
+
+const getAgentsFromApify = async (city) => {
+  try {
+    // 1. Start actor run
+    const runResponse = await axios.post(
+      `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${APIFY_TOKEN}`,
+      {
+        searchLocations: [city],
+        maxPagesPerQuery: 50,
+      }
+    );
+
+    const runId = runResponse.data.data.id;
+
+    // 2. Wait for completion
+    let status = "RUNNING";
+    let datasetId;
+
+    while (status === "RUNNING" || status === "READY") {
+      await new Promise((r) => setTimeout(r, 5000));
+
+      const statusRes = await axios.get(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`
+      );
+
+      status = statusRes.data.data.status;
+      datasetId = statusRes.data.data.defaultDatasetId;
+    }
+
+    if (status !== "SUCCEEDED") {
+      throw new Error("Apify run failed");
+    }
+
+    // 3. Fetch dataset items
+    const datasetRes = await axios.get(
+      `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true`
+    );
+
+    // 4. Normalize data
+    const agents = datasetRes.data.map((item) => ({
+      name: item.name || item.fullName,
+      rating: item.rating || null,
+      website: item.businessWebsite || null,
+    }));
+
+    return agents;
+  } catch (error) {
+    console.error("Apify error:", error.message);
+    throw error;
+  }
+};
 
 
+const saveAgents = async (agents, city) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    for (const agent of agents) {
+      await client.query(
+        `
+        INSERT INTO agents (name, rating, website, city)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT DO NOTHING
+        `,
+        [agent.name, agent.rating, agent.website, city]
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
 
 
-
-
-
-
-module.exports = { scrapeZillowAgentProvider ,insertZillowDataProvider, scrapeAndSaveProvider,scrapeAgentRouter};
+module.exports = { scrapeZillowAgentProvider ,insertZillowDataProvider, scrapeAndSaveProvider,scrapeAgentData ,getAgentsFromApify, saveAgents, insertAgent ,scrapeAgentRouter,
+  agentScrapPlatform
+};

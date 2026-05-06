@@ -2,6 +2,24 @@
 const reviewService = require('../services/review.service');
 const { success, created, paginated } = require('../utils/response');
 
+const scrapreview = async (req, res, next) => {
+  try {
+    const { userId, search, limit, page } = req.query;
+
+    const review = await reviewService.verifyscrapreview(
+      userId,
+      search || null,
+      parseInt(limit) || 10,
+      parseInt(page) || 1
+    );
+
+    return success(res, review);
+
+  } catch (err) {
+    next(err);
+  }
+};
+
 const createReview = async (req, res, next) => {
   try {
     const review = await reviewService.createReview(req.body);
@@ -60,9 +78,13 @@ const importReviews = async (req, res, next) => {
 // Admin only
 const verifyReview = async (req, res, next) => {
   try {
-    const review = await reviewService.verifyReview(parseInt(req.params.reviewId, 10), req.user.id);
+
+    const{is_expected,userId}=req.body
+    const reviewId=parseInt(req.params.reviewId)
+    // const review = await reviewService.verifyReview(parseInt(req.params.reviewId, 10), req.user.agentId)
+    const review = await reviewService.verifyReview(reviewIdis_expected,userId)
     success(res, review);
   } catch (err) { next(err); }
 };
 
-module.exports = { createReview, getReview, replyToReview, reportReview, importReviews, verifyReview, addReview };
+module.exports = { createReview, getReview, replyToReview, reportReview, importReviews, verifyReview, addReview,scrapreview };

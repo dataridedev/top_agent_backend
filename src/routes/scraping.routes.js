@@ -12,6 +12,24 @@ const { pagination }    = require('../middleware/pagination');
  *   description: Endpoints for triggering web scraping tasks
  */
 
+
+/**
+ * @swagger
+ * /agents/getscrapplatform:
+ *   get:
+ *     summary: Get all scrape platform requests
+ *     tags: [Agents]
+ *     responses:
+ *       200:
+ *         description: Successfully fetched scrape requests
+ */
+router.get (
+  '/getscrapplatform',
+  scrap.scrapplatform
+);
+
+
+
 /**
  * @swagger
  * /agents/scrape-zillow-agent:
@@ -23,9 +41,16 @@ const { pagination }    = require('../middleware/pagination');
  *         description: Scraping successful
  */
 router.post(
-  '/scrape-zillow-agent',
+  '/scrape-zillow-agent',authenticate,
   scrap.scrapezillowController
 );
+
+
+router.get("/getAgentsByCity", scrap.getAgentsByCity);
+
+
+router.post("/scrape", scrap.scrapeAgentsByCity);
+
 
 
 module.exports = router;

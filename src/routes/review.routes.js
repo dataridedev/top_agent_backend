@@ -15,6 +15,16 @@ const {
  *   description: Review creation, replies, moderation, and import
  */
 
+
+
+
+
+router.get('/getscrapreview',
+  authenticate, validate,
+  ctrl.scrapreview
+);
+
+
 /**
  * @swagger
  * /reviews:
@@ -218,8 +228,8 @@ router.post('/:reviewId/report',
  *       403:
  *         description: Admin only
  */
-router.patch('/:reviewId/verify',
-  authenticate, authorize('admin'),
+router.put('/:reviewId/verify',
+  authenticate, authorize('agent'),
   ctrl.verifyReview
 );
 

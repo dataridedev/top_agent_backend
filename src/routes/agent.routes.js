@@ -320,7 +320,7 @@ router.put(
  *       409:
  *         description: License number already exists
  */
-router.post('/',
+router.post('/agent',
   authenticate, authorize('admin'),
   createAgentRules, validate,
   ctrl.createAgent
