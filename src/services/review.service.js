@@ -207,7 +207,7 @@ const isPlatformConnectionNew = async (agentId, platform) => {
 };
 
 // ─── Verify review (admin/moderation) ────────────────────────────────────────
-const verifyReview = async (reviewId, userId,is_expected) => {
+const verifyReview = async (reviewId,is_expected,userId) => {
   const { rows } = await query(
     `UPDATE reviews_zillow_master SET is_expected  = ${is_expected} WHERE id = $1 RETURNING *`,
     [reviewId]

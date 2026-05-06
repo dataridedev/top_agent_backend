@@ -79,10 +79,10 @@ const importReviews = async (req, res, next) => {
 const verifyReview = async (req, res, next) => {
   try {
 
-    const{is_expected,userId}=req.body
+    const{userId,is_expected}=req.body
     const reviewId=parseInt(req.params.reviewId)
     // const review = await reviewService.verifyReview(parseInt(req.params.reviewId, 10), req.user.agentId)
-    const review = await reviewService.verifyReview(reviewIdis_expected,userId)
+    const review = await reviewService.verifyReview(reviewId,is_expected,userId)
     success(res, review);
   } catch (err) { next(err); }
 };
