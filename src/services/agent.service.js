@@ -3,6 +3,7 @@ const { query, withTransaction } = require('../db/pool');
 const { ApiError }               = require('../utils/errors');
 const { awardPoints }            = require('../utils/points');
 const { uploadToS3 }             = require('../config/awsFileHelper');
+const { hash, compare }          = require('../utils/password');
 
 // ─── Search agents ────────────────────────────────────────────────────────────
 const searchAgents = async ({ q, city, province, specialties, languages, min_rating,
@@ -86,29 +87,138 @@ const getAgentById = async (agentId) => {
   return rows[0];
 };
 
-// ─── Create agent (admin / auto-seed) ────────────────────────────────────────
-const createAgent = async (data) => {
-  const { name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards} = data;
-  // const { license_number, first_name, last_name, email, phone, brokerage,
-  //         bio, website, languages, specialties, areas_served } = data;
+// ─── Create Customer  ────────────────────────────────────────
 
-  const { rows } = await query(
-    `INSERT INTO agent_zillow_master
-       (name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
-     RETURNING *`,
-    [name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards]
+const createCustomer = async (data) => {
+  const { first_name, last_name, role = 'consumer', city, email, phone_number,usertype,address,property,budget_warranty,finance,selling,agent_specialization,about,purchase} = data;
+     
+ 
+  const password_hash = await hash(phone_number);
+    let userResult;
+  let CustomerResult;
+
+  if(usertype === 'Buying'){
+
+     userResult = await query(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,address,usertype)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
+    [email, password_hash, first_name, last_name, role, phone_number, city,address,usertype]
   );
-  // const { rows } = await query(
-  //   `INSERT INTO agents
-  //      (license_number, first_name, last_name, email, phone, brokerage, bio, website, languages, specialties, areas_served)
-  //    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-  //    RETURNING *`,
-  //   [license_number, first_name, last_name, email, phone, brokerage, bio,
-  //    website, languages || [], specialties || [], areas_served || []]
-  // );
-  return rows[0];
+
+  const user_id = userResult.rows[0].id;
+
+ CustomerResult = await query(
+    `INSERT INTO customer
+       (property,budget_warranty,finance,city,purchase,agent_specialization,about,user_id,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,Now())
+     RETURNING *`,
+    [property,budget_warranty,finance,city,purchase,agent_specialization,about,user_id]
+  );
+
+  }else{
+     
+  userResult = await query(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,address,usertype)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
+    [email, password_hash, first_name, last_name, role, phone_number, address, city,usertype]
+  )
+  
+  const user_id = userResult.rows[0].id;
+
+CustomerResult= await query(
+    `INSERT INTO customer
+       (property,budget_warranty,finance,city,address,agent_specialization,about,selling,user_id,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,Now())
+     RETURNING *`,
+    [property,budget_warranty,finance,city,address,agent_specialization,about,selling,user_id]
+  );
+  }
+  
+ 
+   return {
+  success: true,
+  message: " Customer created successfully",
+  data: CustomerResult.rows[0]
 };
+};
+
+
+
+
+// ─── Create agent  ────────────────────────────────────────
+// const createAgent = async (data) => {
+//   const { name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards} = data;
+//   // const { license_number, first_name, last_name, email, phone, brokerage,
+//   //         bio, website, languages, specialties, areas_served } = data;
+
+//   const { rows } = await query(
+//     `INSERT INTO agent_zillow_master
+//        (name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards)
+//      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+//      RETURNING *`,
+//     [name, company_name, profile_url, about_heading, about_description, specialization, team_heading, website_url, linkedin_url, facebook_url, instagram_url, youtube_url, twitter_url, city, email, office_number, license_number, phone_number, total_clients, total_hired, accepting_new_clients, service_areas, awards]
+//   );
+//   // const { rows } = await query(
+//   //   `INSERT INTO agents
+//   //      (license_number, first_name, last_name, email, phone, brokerage, bio, website, languages, specialties, areas_served)
+//   //    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+//   //    RETURNING *`,
+//   //   [license_number, first_name, last_name, email, phone, brokerage, bio,
+//   //    website, languages || [], specialties || [], areas_served || []]
+//   // );
+//   return rows[0];
+// }
+const createAgent = async (data) => {
+  const { first_name, last_name, role = 'agent', city, email, license_number, phone_number,deal_cracked_12_month,goal,brokerage,agenttype,agent,company_name,website_url,address} = data;
+
+  const password_hash = await hash(phone_number);
+    let userResult;
+  let agentResult;
+
+  if(agent === true){
+
+     userResult = await query(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,usertype)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, email, first_name, last_name, role`,
+    [email, password_hash, first_name, last_name, role, phone_number, city,agenttype]
+  );
+
+  const user_id = userResult.rows[0].id;
+
+ agentResult = await query(
+    `INSERT INTO agent_zillow_master
+       (name, city, email, license_number, phone_number,deal_cracked_12_month,goal,brokerage,user_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING *`,
+    [`${first_name} ${last_name}`,city, email, license_number, phone_number,deal_cracked_12_month,goal,brokerage,user_id]
+  );
+
+  }else{
+     
+  userResult = await query(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone	,company_name	,address,	city,usertype)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, email, first_name, last_name, role`,
+    [email, password_hash, first_name, last_name, role, phone_number, company_name, address, city,agenttype]
+  )
+  
+  const user_id = userResult.rows[0].id;
+
+agentResult= await query(
+    `INSERT INTO agent_zillow_master
+       (name, city, email, license_number, phone_number,user_id,brokerage,website_url)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     RETURNING *`,
+    [`${first_name} ${last_name}`,city, email, license_number, phone_number,user_id,brokerage,website_url]
+  );
+  }
+  
+   return {
+  success: true,
+  message: "Agent created successfully",
+  data: agentResult.rows[0]
+};
+};
+
 
 // ─── Update agent ─────────────────────────────────────────────────────────────
 const updateAgent = async (agentId, data) => {
@@ -1003,5 +1113,5 @@ const UserInfo = async (userId, payload ) => {
 module.exports = {
   searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
   claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,editClaimAgentByAdmin, getUserInfo
-  ,UserAvatar, UserInfo,ActiveAgent,unclaimAgent
+  ,UserAvatar, UserInfo,ActiveAgent,unclaimAgent,createCustomer
 };

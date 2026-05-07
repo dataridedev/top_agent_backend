@@ -18,7 +18,20 @@ const {
 
 
 
-
+/**
+ * @swagger
+ * /getscrapreview:
+ *   get:
+ *     summary: Get scraped reviews
+ *     tags: [Scraped Reviews]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Scraped reviews fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/getscrapreview',
   authenticate, validate,
   ctrl.scrapreview

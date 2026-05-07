@@ -25,12 +25,14 @@ const listCities = async ({ province = 'BC', region }, { limit, offset }) => {
   return { cities: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
 };
 
-const getcityAgents = async (slug, { search, page = 1, limit } = {}) => {
+const getcityAgents = async (slug, { search, page = 1, limit,sortOrder } = {}) => {
   try {
 
     const conditions = [];
     const params = [];
     let p = 1;
+
+ const order = sortOrder?.toLowerCase() === "desc" ? "DESC" : "ASC";
 
 
     if (slug) {
@@ -56,16 +58,26 @@ const getcityAgents = async (slug, { search, page = 1, limit } = {}) => {
 
   
     const cityAgents = await query(
-      `SELECT  
-    a.id,
-    a.name,
-    a.company_name,
-    a.profile_url,
-    a.about_heading,
-    a.about_description,
-    a.city
-FROM agent_zillow_master a
+      ` SELECT 
+      a.id,
+      a.name,
+      a.company_name,
+      a.profile_url,
+      a.city,
+      a.email,
+      a.about_heading,
+      a.about_description,
+      a.office_number,
+      a.license_number,
+      a.phone_number,
+      a.total_hired,
+      a.avg_rating,
+      a.claimed_at
+    FROM agent_zillow_master a
 WHERE a.city ILIKE $1
+ ORDER BY 
+      CASE WHEN a.claimed_at IS NOT NULL THEN 0 ELSE 1 END,  
+      a.name ${order}   
 LIMIT $2;`,
     [slug, limit]
     );

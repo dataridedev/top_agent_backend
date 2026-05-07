@@ -95,7 +95,7 @@ router.get('/getcity', async (req, res, next) => {
  */
 router.get('/getcityAgents', async (req, res, next) => {
   try {
-    const { city, page, limit,search } = req.query;
+    const { city, page, limit,search,sortOrder } = req.query;
 
     const data = await cityService.getcityAgents(city, {
       page: Number(page) || 1,

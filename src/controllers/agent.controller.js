@@ -16,6 +16,14 @@ const getAgent = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const createCustomer = async (req, res, next) => {
+  try {
+    const Customer = await agentService.createCustomer(req.body);
+    created(res, Customer);
+  } catch (err) { next(err); }
+};
+
+
 const createAgent = async (req, res, next) => {
   try {
     const agent = await agentService.createAgent(req.body);
@@ -293,4 +301,4 @@ const updateuserinfo = async (req, res, next) => {
 
 
 module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent,
-   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent};
+   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent,createCustomer};

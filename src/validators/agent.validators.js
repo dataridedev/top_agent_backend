@@ -4,6 +4,7 @@ const { body, query, param } = require('express-validator');
 const TIERS = ['BRONZE','SILVER','GOLD','PLATINUM','DIAMOND','LUMINARY'];
 const SORTS  = ['rating','reviews','recent','points'];
 
+
 const createAgentRules = [
   body('license_number').notEmpty().trim().isLength({ max: 50 }).withMessage('License number is required'),
   body('first_name').notEmpty().trim().isLength({ max: 100 }).withMessage('First name is required'),
@@ -11,12 +12,22 @@ const createAgentRules = [
   body('email').optional().isEmail().normalizeEmail(),
   body('phone').optional().trim().isLength({ max: 20 }),
   body('brokerage').optional().trim().isLength({ max: 255 }),
-  body('bio').optional().isLength({ max: 2000 }),
-  body('website').optional().isURL().withMessage('Invalid website URL'),
-  body('languages').optional().isArray(),
-  body('specialties').optional().isArray(),
-  body('areas_served').optional().isArray(),
+  body('city').optional().trim().isLength({ max: 255 })
 ];
+
+
+const createCustomerRules = [
+  body('property').notEmpty().trim().isLength({ max: 50 }).withMessage('License number is required'),
+  body('first_name').notEmpty().trim().isLength({ max: 100 }).withMessage('First name is required'),
+  body('last_name').notEmpty().trim().isLength({ max: 100 }).withMessage('Last name is required'),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('phone_number').optional().trim().isLength({ max: 20 }),
+  body('property').optional().trim().isLength({ max: 20 }),
+  body('budget_warranty').optional().trim().isLength({ max: 20 }),
+  body('address').optional().trim().isLength({ max: 500 }),
+  body('city').optional().trim().isLength({ max: 255 })
+];
+
 
 const updateAgentRules = [
   body('first_name').optional().trim().isLength({ max: 100 }),
@@ -66,5 +77,5 @@ const claimAgentRules = [
 ];
 
 module.exports = {
-  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules
+  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules
 };

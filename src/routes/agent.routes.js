@@ -7,7 +7,7 @@ const { pagination }    = require('../middleware/pagination');
 const { searchLimiter } = require('../middleware/rateLimiter');
 const {
   createAgentRules, updateAgentRules, searchAgentRules,
-  agentIdParam, claimAgentRules,AllAgentRules
+  agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules
 } = require('../validators/agent.validators');
 const { listReviewsQuery } = require('../validators/review.validators');
 const multer = require('multer');
@@ -297,7 +297,32 @@ router.put(
 );
 
 
-
+/**
+ * @swagger
+ * /customer:
+ *   post:
+ *     summary: Create customer profile
+ *     tags: [Customer]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CustomerCreate'
+ *     responses:
+ *       201:
+ *         description: Customer created successfully
+ *       400:
+ *         description: Validation error
+ */
+router.post(
+  '/customer',
+  createCustomerRules,
+  validate,
+  ctrl.createCustomer
+);
 
 
 /**
@@ -321,7 +346,6 @@ router.put(
  *         description: License number already exists
  */
 router.post('/agent',
-  authenticate, authorize('admin'),
   createAgentRules, validate,
   ctrl.createAgent
 );
