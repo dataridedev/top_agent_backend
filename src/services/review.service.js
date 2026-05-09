@@ -218,8 +218,15 @@ const verifyReview = async (reviewId,is_expected,userId) => {
   if (rows[0].platform === 'native') {
     await awardPoints(rows[0].agent_id, 'REVIEW_NATIVE', 'review', reviewId, 'Native review verified');
   }
-  return rows[0];
+    return {
+    data: rows[0],
+
+    message: is_expected
+      ? "Review approved successfully"
+      : "Review rejected successfully",
+  };
 };
+
 
 // ─── Reply to review ──────────────────────────────────────────────────────────
 const replyToReview = async (reviewId, agentId, response) => {
