@@ -40,6 +40,10 @@ router.get (
  *       200:
  *         description: Scraping successful
  */
+// router.post(
+//   '/scrape-zillow-agent',authenticate,
+//   scrap.scrapezillowController
+// );
 router.post(
   '/scrape-zillow-agent',authenticate,
   scrap.scrapezillowController
