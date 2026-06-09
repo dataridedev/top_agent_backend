@@ -31,7 +31,7 @@ info:
     email: dev@topagents.ca
 
 servers:
-  - url: http://localhost:2021/api/v1
+  - url: http://localhost:2022/api/v1
     description: Local development
   - url: https://api.topagents.ca/api/v1
     description: Production
@@ -285,6 +285,47 @@ components:
           type: boolean
         marketing_emails:
           type: boolean
+     
+
+    CustomerCreate:
+      type: object
+      required: [first_name, last_name, email, phone_number, city, usertype]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+        role:
+          type: string
+          default: consumer
+        city:
+          type: string
+        address:
+          type: string
+        usertype:
+          type: string
+          enum:
+            - Buying
+            - Selling
+        property:
+          type: string
+        budget_warranty:
+          type: string
+        finance:
+          type: string
+        purchase:
+          type: string
+        selling:
+          type: string
+        agent_specialization:
+          type: string
+        about:
+          type: string
 
     Review:
       type: object
@@ -1076,6 +1117,129 @@ paths:
                       $ref: '#/components/schemas/Agent'
                   meta:
                     $ref: '#/components/schemas/PaginationMeta'
+    post:
+      tags: [Agents]
+      summary: Create agent profile (admin or bulk seed)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentCreate'
+      responses:
+        '201':
+          description: Agent created
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: License number already exists
+
+  /agents/customer:
+    post:
+      tags:
+        - Customer
+      summary: Create customer profile
+      description: Creates a new customer profile and associated user account.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - first_name
+                - last_name
+                - email
+                - phone_number
+                - city
+                - usertype
+              properties:
+                first_name:
+                  type: string
+                  example: John
+                last_name:
+                  type: string
+                  example: Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                phone_number:
+                  type: string
+                  example: "9876543210"
+                user_role:
+                  type: string
+                  example: consumer
+                city:
+                  type: string
+                  example: Toronto
+                address:
+                  type: string
+                  example: 123 Main Street
+                usertype:
+                  type: string
+                  enum:
+                    - Buying
+                    - Selling
+                  example: Buying
+                property:
+                  type: string
+                  example: Condo
+                budget_warranty:
+                  type: string
+                  example: 500000
+                finance:
+                  type: string
+                  example: Pre-approved
+                purchase:
+                  type: string
+                  example: First Home
+                selling:
+                  type: string
+                  example: Residential Property
+                agent_specialization:
+                  type: string
+                  example: Luxury Homes
+                about:
+                  type: string
+                  example: Looking for a property in downtown area.
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Customer created successfully
+                  data:
+                    type: object
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Validation error
+        '401':
+          description: Unauthorized
 
   /agents/getclaimAgent:
     get:
@@ -1084,7 +1248,7 @@ paths:
      description: Returns logged-in agent profile based on JWT token
      security:
       - bearerAuth: []
-    responses:
+     responses:
       '200':
         description: Agent profile fetched successfully
         content:
@@ -1103,6 +1267,109 @@ paths:
             example:
               success: false
               message: "Unauthorized"
+
+
+  /agent/getActiveclaimAgent:
+    get:
+      tags: [Agents]
+      summary: Get active claimed agent profiles
+      description: Returns a list of active claimed agent profiles with pagination support.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of records per page
+      responses:
+        '200':
+          description: Active claimed agent profiles fetched successfully
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  - realtorID: "12345"
+                    firstName: "John"
+                    lastName: "Doe"
+                    email: "john@example.com"
+                    status: "active"
+                meta:
+                  total: 100
+                  page: 1
+                  limit: 10
+                  totalPages: 10
+                  hasNext: true
+                  hasPrev: false
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              example:
+                success: false
+                message: "Unauthorized"
+        '403':
+          description: Forbidden - User does not have permission
+        '500':
+          description: Internal server error
+
+
+  /agents/unclaimed:
+   get:
+    tags:
+      - Agents
+    summary: Get all unclaimed agents
+    description: Returns a list of agents whose profiles have not yet been claimed.
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        description: List of unclaimed agents fetched successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      name:
+                        type: string
+                        example: John Doe
+                      claimed_at:
+                        type: string
+                        nullable: true
+                        example: null
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: false
+                message:
+                  type: string
+                  example: Unauthorized
+
 
   /agents/getAllAgent:
    get:
@@ -1219,7 +1486,7 @@ paths:
               success: false
               message: "Unauthorized"
 
-    post:
+   post:
       tags: [Agents]
       summary: Create agent profile (admin or bulk seed)
       security:
@@ -1291,7 +1558,7 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   /agents/{agentId}/claim:
-   post:
+    post:
       tags: [Agents]
       summary: Claim an unclaimed agent profile
       security:
@@ -1321,8 +1588,78 @@ paths:
         '409':
           description: Profile already claimed
 
+  /agents/{agentId}/editClaim:
+    put:
+      tags:
+        - Agents
+      summary: Verify claimed agent (Admin only)
+      description: Allows an admin to verify or update the claim status of an agent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: agentId
+          required: true
+          description: Agent ID
+          schema:
+            type: integer
+            example: 123
+      responses:
+        '200':
+          description: Agent verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Agent verified successfully
+        '400':
+          description: Invalid agentId
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Invalid agentId
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Forbidden
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Agent not found
+
   /agents/{agentId}/stats:
-   get:
+    get:
       tags: [Agents]
       summary: Get agent performance statistics
       parameters:
@@ -1770,6 +2107,20 @@ paths:
           description: Duplicate review
         '422':
           $ref: '#/components/responses/ValidationError'
+  
+  /getscrapreview:
+    get:
+      tags: [Scraped Reviews]
+      summary: Get scraped reviews
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scraped reviews fetched successfully
+        '401':
+          description: Unauthorized
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   /reviews/import:
     post:
@@ -1863,6 +2214,10 @@ paths:
             type: integer
       requestBody:
         required: true
+        content:
+          application/json:
+            schema:
+              type: object
       responses:
         '200':
           description: Review reported
@@ -2196,30 +2551,27 @@ paths:
                 - "Sterling"
                 - "Evanston"
 
-   /cities/getcityAgents:
-    get:
-     tags: [Cities]
-     summary: Get city-wise agents with pagination
-     description: Returns list of cities with agent data
+  /cities/getcityAgents:
+   get:
+    tags: [Cities]
+    summary: Get city-wise agents with pagination
+    description: Returns list of cities with agent data
     parameters:
       - in: query
         name: city
         schema:
           type: string
         description: Filter by city name
-
       - in: query
         name: page
         schema:
           type: integer
           default: 1
-
       - in: query
         name: limit
         schema:
           type: integer
           default: 20
-
     responses:
       '200':
         description: Paginated city list with agent counts

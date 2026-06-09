@@ -116,18 +116,24 @@ router.get(
 );
 
 /**
- * @swagger
- * /agent/getclaimAgent:
- *   get:
- *     summary: Get claimed agent profile (from token)
- *     tags: [Agents]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Agent profile fetched successfully
- *       401:
- *         description: Unauthorized
+* @swagger
+* /agent/getActiveclaimAgent:
+*   get:
+*     summary: Get active claimed agent profiles
+*     description: Retrieves a list of active claimed agent profiles.
+*     tags:
+*       - Agents
+*     security:
+*       - bearerAuth: []
+*     responses:
+*       200:
+*         description: Active claimed agent profiles fetched successfully.
+*       401:
+*         description: Unauthorized. Authentication token is missing or invalid.
+*       403:
+*         description: Forbidden. User does not have permission to access this resource.
+*       500:
+*         description: Internal server error.
  */
 router.get(
   '/getActiveclaimAgent',
@@ -183,7 +189,7 @@ router.get(
  *         description: List of all agent profiles
  */
 router.get(
-  '/getAllAgent',searchLimiter,AllAgentRules,validate,
+  '/getAllAgent', searchLimiter, AllAgentRules, validate,
   ctrl.getAllAgent
 );
 
@@ -242,54 +248,54 @@ router.put(
 
 
 
- /**
- * @swagger
- * /agent/updateinfo:
- *   put:
- *     summary: Update agent user information
- *     tags: [Agents]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               first_name:
- *                 type: string
- *                 example: John
- *               last_name:
- *                 type: string
- *                 example: Doe
- *               phone:
- *                 type: string
- *                 example: "9876543210"
- *               company_name:
- *                 type: string
- *                 example: ABC Realty
- *               address:
- *                 type: string
- *                 example: MG Road, Pune
- *               city:
- *                 type: string
- *                 example: Pune
- *               role:
- *                 type: string
- *                 example: agent
- *     responses:
- *       200:
- *         description: User information updated successfully
- *       400:
- *         description: Invalid request data
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       404:
- *         description: User not found
- */
+/**
+* @swagger
+* /agent/updateinfo:
+*   put:
+*     summary: Update agent user information
+*     tags: [Agents]
+*     security:
+*       - bearerAuth: []
+*     requestBody:
+*       required: true
+*       content:
+*         application/json:
+*           schema:
+*             type: object
+*             properties:
+*               first_name:
+*                 type: string
+*                 example: John
+*               last_name:
+*                 type: string
+*                 example: Doe
+*               phone:
+*                 type: string
+*                 example: "9876543210"
+*               company_name:
+*                 type: string
+*                 example: ABC Realty
+*               address:
+*                 type: string
+*                 example: MG Road, Pune
+*               city:
+*                 type: string
+*                 example: Pune
+*               role:
+*                 type: string
+*                 example: agent
+*     responses:
+*       200:
+*         description: User information updated successfully
+*       400:
+*         description: Invalid request data
+*       401:
+*         description: Unauthorized
+*       403:
+*         description: Forbidden
+*       404:
+*         description: User not found
+*/
 router.put(
   '/updateinfo',
   authenticate,
@@ -299,7 +305,7 @@ router.put(
 
 /**
  * @swagger
- * /customer:
+ * /agents/customer:
  *   post:
  *     summary: Create customer profile
  *     tags: [Customer]
@@ -312,10 +318,12 @@ router.put(
  *           schema:
  *             $ref: '#/components/schemas/CustomerCreate'
  *     responses:
- *       201:
+ *       '201':
  *         description: Customer created successfully
- *       400:
+ *       '400':
  *         description: Validation error
+ *       '401':
+ *         description: Unauthorized
  */
 router.post(
   '/customer',
