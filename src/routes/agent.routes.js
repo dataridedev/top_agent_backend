@@ -1,13 +1,13 @@
 'use strict';
 const router = require('express').Router();
-const ctrl   = require('../controllers/agent.controller');
+const ctrl = require('../controllers/agent.controller');
 const { authenticate, authorize, ownsAgent, optionalAuth } = require('../middleware/auth');
-const { validate }      = require('../middleware/validate');
-const { pagination }    = require('../middleware/pagination');
+const { validate } = require('../middleware/validate');
+const { pagination } = require('../middleware/pagination');
 const { searchLimiter } = require('../middleware/rateLimiter');
 const {
   createAgentRules, updateAgentRules, searchAgentRules,
-  agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules
+  agentIdParam, claimAgentRules, AllAgentRules, createCustomerRules, contactAgentRules
 } = require('../validators/agent.validators');
 const { listReviewsQuery } = require('../validators/review.validators');
 const multer = require('multer');
@@ -94,6 +94,37 @@ router.get('/',
   ctrl.searchAgents
 );
 
+
+
+/**
+ * @swagger
+ * /agents/alldata:
+ *   get:
+ *     summary: Get dashboard statistics
+ *     tags: [Agents]
+ *     description: Returns total cities, city names, total claimed agents, and total reviews for claimed agents.
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics fetched successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 totalCities: 46
+ *                 cities:
+ *                   - Toronto
+ *                   - Vancouver
+ *                   - Calgary
+ *                   - Ottawa
+ *                 totalAgents: 120
+ *                 totalReviews: 5420
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/alldata', ctrl.getalldata);
+
+
 /**
  * @swagger
  * /agent/getclaimAgent:
@@ -114,6 +145,7 @@ router.get(
   authorize('agent', 'consumer', 'admin'),
   ctrl.getclaim
 );
+
 
 /**
 * @swagger
@@ -301,6 +333,43 @@ router.put(
   authenticate,
   ctrl.updateuserinfo
 );
+
+/**
+ * @swagger
+ * /agents/contact:
+  *   post: 
+  *    summary: Contact an agent
+  *   tags: [Agents]
+  *  requestBody:
+  *   required: true
+  *   content:
+  *     application/json:
+  *       schema:
+  *        type: object
+  *        properties:
+  *        name:
+  *        type: string
+  *       example: John Doe
+  *      email:
+  *      type: string
+  *    example:
+  *     Iam: "I am a home buyer interested in your services."
+  *    phone_number:
+  *   type: string
+  *  example: "9876543210"
+  *  message:
+  * type: string
+  *  example: "Hello, I would like to know more about your services. Please contact me."
+  *    responses:
+  *      200:
+  *       description: Message sent successfully
+  *     400:
+  *      description: Invalid request data
+  *    500:
+  *     description: Internal server error
+  */  
+router.post('/contact',  contactAgentRules,
+  validate, ctrl.contactdata);
 
 
 /**

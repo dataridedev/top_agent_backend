@@ -1138,6 +1138,25 @@ paths:
         '409':
           description: License number already exists
 
+  /agents/alldata:
+    get:
+      summary: Get dashboard statistics
+      tags: [Agents]
+      responses:
+        200:
+          description: Dashboard statistics fetched successfully
+          content:
+            application/json:
+              example:
+                success: true
+                totalCities: 46
+                cities:
+                  - Toronto
+                  - Vancouver
+                  - Calgary
+                totalAgents: 120
+                totalReviews: 5420
+
   /agents/customer:
     post:
       tags:

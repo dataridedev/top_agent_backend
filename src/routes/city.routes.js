@@ -36,19 +36,42 @@ const { validate } = require('../middleware/validate');
  *       200:
  *         description: Paginated city list with agent counts
  */
-router.get('/',
+router.get(
+  '/',
   [
-    query('province').optional().trim(),
-    query('region').optional().trim(),
-  ], validate,
-  pagination(50, 200),
+    query('q').optional().trim()
+  ],
+  validate,
   async (req, res, next) => {
     try {
-      const { cities, total } = await cityService.listCities(req.query, req.pagination);
-      paginated(res, cities, total, req.pagination);
-    } catch (err) { next(err); }
+      const { cities, total } = await cityService.listCities(req.query);
+
+      return res.status(200).json({
+        success: true,
+        total,
+        cities
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 );
+// router.get('/',
+//   [
+//     query('province').optional().trim(),
+//     query('region').optional().trim(),
+//   ], validate,
+//   // pagination(50, 200),
+//   async (req, res, next) => {
+//     try {
+//       // const { cities, total } = await cityService.listCities(req.query, req.pagination);
+//       const { cities, total } = await cityService.listCities(req.query, req.pagination);
+//       paginated(res, cities, total, req.pagination);
+//     } catch (err) { next(err); }
+//   }
+// );
+
+
 
 /**
  * @swagger

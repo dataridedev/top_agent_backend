@@ -9,6 +9,13 @@ const searchAgents = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const  getalldata = async (req, res, next) => {
+  try { 
+     const data = await agentService.getdata();
+    success(res, data);
+  } catch (err) { next(err); }
+};
+
 const getAgent = async (req, res, next) => {
   try {
     const agent = await agentService.getAgentById(parseInt(req.params.agentId, 10));
@@ -240,6 +247,19 @@ const userinfo = async (req, res, next) => {
   }
 };
 
+const contactdata = async (req, res, next) => {
+  try {
+    const { name, email, iam, phone_number, message,agent_id } = req.body;
+    const data = await agentService.contact({ name, email, iam, phone_number, message,agent_id });
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 const editUserAvatar = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -300,5 +320,5 @@ const updateuserinfo = async (req, res, next) => {
 
 
 
-module.exports = { searchAgents, getAgent, createAgent, updateAgent, claimAgent,
-   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent,createCustomer};
+module.exports = { searchAgents,getalldata, getAgent, createAgent, updateAgent, claimAgent,
+   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent,createCustomer,contactdata};

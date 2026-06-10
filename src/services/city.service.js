@@ -2,113 +2,261 @@
 const { query } = require('../db/pool');
 const { ApiError } = require('../utils/errors');
 
-const listCities = async ({ province = 'BC', region }, { limit, offset }) => {
-  const conditions = ['c.province = $1'];
-  const params     = [province];
-  let p = 2;
+// const listCities = async ({ province = 'BC', region }, { limit, offset }) => {
+//   const conditions = ['c.province = $1'];
+//   const params     = [province];
+//   let p = 2;
 
-  if (region) { conditions.push(`c.region = $${p++}`); params.push(region); }
+//   if (region) { conditions.push(`c.region = $${p++}`); params.push(region); }
 
-  const where = `WHERE ${conditions.join(' AND ')}`;
+//   const where = `WHERE ${conditions.join(' AND ')}`;
+
+//   const [countRes, dataRes] = await Promise.all([
+//     query(`SELECT COUNT(*) FROM cities c ${where}`, params),
+//     query(
+//       ` SELECT DISTINCT city
+//         FROM agent_zillow_master azm
+//        LIMIT $${p} OFFSET $${p+1}`,
+//       [...params, limit, offset]
+//     // query(`SELECT COUNT(*) FROM cities c ${where}`, params),
+//     // query(
+//     //   `SELECT c.*, (SELECT COUNT(*) FROM agent a WHERE $1 = ANY(a.areas_served) AND a.claimed_at IS NOT NULL) AS claimed_agents
+//     //    FROM cities c ${where}
+//     //    ORDER BY c.population DESC NULLS LAST
+//     //    LIMIT $${p} OFFSET $${p+1}`,
+//     //   [...params, limit, offset]
+//     ),
+//   ]);
+
+//   return { cities: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
+// };
+
+const listCities = async ({ q }) => {
+  const params = [];
+  let p = 1;
+
+  let where = '';
+
+  if (q) {
+    where = `WHERE city ILIKE $${p}`;
+    params.push(`${q}%`); // Prefix search
+    p++;
+  }
 
   const [countRes, dataRes] = await Promise.all([
-    query(`SELECT COUNT(*) FROM cities c ${where}`, params),
     query(
-      `SELECT c.*, (SELECT COUNT(*) FROM agents a WHERE $1 = ANY(a.areas_served) AND a.claimed_at IS NOT NULL) AS claimed_agents
-       FROM cities c ${where}
-       ORDER BY c.population DESC NULLS LAST
-       LIMIT $${p} OFFSET $${p+1}`,
-      [...params, limit, offset]
+      `
+      SELECT COUNT(*)
+      FROM (
+        SELECT DISTINCT city
+        FROM agent_zillow_master
+        ${where}
+      ) c
+      `,
+      params
     ),
+
+    query(
+      `
+      SELECT DISTINCT city
+      FROM agent_zillow_master
+      ${where}
+      ORDER BY city
+      `,
+      params
+    )
   ]);
 
-  return { cities: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
+  return {
+    cities: dataRes.rows,
+    total: Number(countRes.rows[0].count)
+  };
 };
 
-const getcityAgents = async (slug, { search, page = 1, limit,sortOrder } = {}) => {
-  try {
 
+
+// const getcityAgents = async (slug, { search, page = 1, limit,sortOrder } = {}) => {
+//   try {
+
+//     const conditions = [];
+//     const params = [];
+//     let p = 1;
+
+//  const order = sortOrder?.toLowerCase() === "desc" ? "DESC" : "ASC";
+
+
+//     if (slug) {
+//       conditions.push(`a.city ILIKE $${p++}`);
+//       params.push(`%${slug}%`);
+//     }
+
+
+//     if (search) {
+//       conditions.push(`a.name ILIKE $${p++}`);
+//       params.push(`%${search}%`);
+//     }
+
+//     const whereClause = conditions.length
+//       ? `WHERE ${conditions.join(' AND ')}`
+//       : '';
+
+
+//     const offset = (page - 1) * limit;
+
+//     params.push(limit);
+//     params.push(offset);
+
+  
+//     const cityAgents = await query(
+//       ` SELECT 
+//       a.id,
+//       a.name,
+//       a.company_name,
+//       a.profile_url,
+//       a.city,
+//       a.email,
+//       a.about_heading,
+//       a.about_description,
+//       a.office_number,
+//       a.license_number,
+//       a.phone_number,
+//       a.total_hired,
+//       a.avg_rating,
+//       a.claimed_at
+//     FROM agent_zillow_master a
+// WHERE a.city ILIKE $1
+//  ORDER BY 
+//       CASE WHEN a.claimed_at IS NOT NULL THEN 0 ELSE 1 END,  
+//       a.name ${order}   
+// LIMIT $2;`,
+//     [slug, limit]
+//     );
+
+//     const countParams = params.slice(0, params.length - 2);
+
+//     const countRes = await query(
+//       `SELECT COUNT(*) 
+//        FROM agent_zillow_master a
+//        ${whereClause}`,
+//       countParams
+//     );
+
+//     return {
+//       success: true,
+//       total: parseInt(countRes.rows[0].count, 10),
+//       page,
+//       limit,
+//       agents: cityAgents.rows
+//     };
+
+//   } catch (error) {
+//     console.error('Error in getcityAgents:', error);
+//     return {
+//       success: false,
+//       error: {
+//         message: 'Failed to fetch agents'
+//       }
+//     };
+//   }
+// };
+
+const getcityAgents = async (
+  slug,
+  { search, page = 1, limit = 20, sortOrder = "asc" } = {}
+) => {
+  try {
     const conditions = [];
     const params = [];
     let p = 1;
 
- const order = sortOrder?.toLowerCase() === "desc" ? "DESC" : "ASC";
+    const order = sortOrder?.toLowerCase() === "desc" ? "DESC" : "ASC";
 
-
-    if (slug) {
-      conditions.push(`a.city ILIKE $${p++}`);
+    // City filter
+    if (slug && slug.trim()) {
+      conditions.push(`a.city ILIKE $${p}`);
       params.push(`%${slug}%`);
+      p++;
     }
 
-
-    if (search) {
-      conditions.push(`a.name ILIKE $${p++}`);
-      params.push(`%${search}%`);
+    // Name search
+    if (search && search.trim()) {
+      conditions.push(`a.name ILIKE $${p}`);
+      params.push(`${search}%`); // starts with search text
+      p++;
     }
 
     const whereClause = conditions.length
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
-
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
     const offset = (page - 1) * limit;
 
-    params.push(limit);
-    params.push(offset);
+    const dataParams = [...params, limit, offset];
 
-  
     const cityAgents = await query(
-      ` SELECT 
-      a.id,
-      a.name,
-      a.company_name,
-      a.profile_url,
-      a.city,
-      a.email,
-      a.about_heading,
-      a.about_description,
-      a.office_number,
-      a.license_number,
-      a.phone_number,
-      a.total_hired,
-      a.avg_rating,
-      a.claimed_at
-    FROM agent_zillow_master a
-WHERE a.city ILIKE $1
- ORDER BY 
-      CASE WHEN a.claimed_at IS NOT NULL THEN 0 ELSE 1 END,  
-      a.name ${order}   
-LIMIT $2;`,
-    [slug, limit]
+      `
+      SELECT
+        a.id,
+        a.name,
+          UPPER(
+    LEFT(SPLIT_PART(a.name, ' ', 1), 1) ||
+    LEFT(
+      SPLIT_PART(
+        a.name,
+        ' ',
+        array_length(string_to_array(a.name, ' '), 1)
+      ),
+      1
+    )
+  ) AS initials,
+        a.brokerage,
+        a.profile_url,
+        a.city,
+        a.about_heading,
+        a.about_description,
+        a.specialization,
+        a.claimed_at
+      FROM agent_zillow_master a
+      ${whereClause}
+      ORDER BY
+        a.name ${order}
+      LIMIT $${p}
+      OFFSET $${p + 1}
+      `,
+      dataParams
     );
 
-    const countParams = params.slice(0, params.length - 2);
-
     const countRes = await query(
-      `SELECT COUNT(*) 
-       FROM agent_zillow_master a
-       ${whereClause}`,
-      countParams
+      `
+      SELECT COUNT(*)
+      FROM agent_zillow_master a
+      ${whereClause}
+      `,
+      params
     );
 
     return {
       success: true,
-      total: parseInt(countRes.rows[0].count, 10),
+      total: Number(countRes.rows[0].count),
       page,
       limit,
-      agents: cityAgents.rows
+      agents: cityAgents.rows,
     };
-
   } catch (error) {
-    console.error('Error in getcityAgents:', error);
+    console.error("Error in getcityAgents:", error);
+
     return {
       success: false,
       error: {
-        message: 'Failed to fetch agents'
-      }
+        message: "Failed to fetch agents",
+      },
     };
   }
 };
+
+
+
+
 
 const city = async () => {
   try {

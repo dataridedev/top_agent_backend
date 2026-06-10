@@ -16,21 +16,28 @@ const searchAgents = async ({ q, city, province, specialties, languages, min_rat
   if (claimed_only) { conditions.push(`a.claimed_at IS NOT NULL`); }
 
   if (q) {
-    conditions.push(`(a.first_name ILIKE $${p} OR a.last_name ILIKE $${p} OR a.brokerage ILIKE $${p})`);
+    conditions.push(` (a.name ILIKE $${p} OR a.brokerage ILIKE $${p}) `);
     params.push(`%${q}%`); p++;
   }
   if (city) {
-    conditions.push(`$${p} = ANY(a.areas_served)`);
+    conditions.push(` (
+      a.city ILIKE $${p}
+      OR a.service_areas::text ILIKE $${p}
+    )`);
     params.push(city); p++;
   }
+  // if (city) {
+  //   conditions.push(`$${p} = ANY(a.service_areas)`);
+  //   params.push(city); p++;
+  // }
   if (min_rating) {
     conditions.push(`a.avg_rating >= $${p}`);
     params.push(parseFloat(min_rating)); p++;
   }
-  if (tier) {
-    conditions.push(`a.current_tier = $${p}`);
-    params.push(tier); p++;
-  }
+  // if (tier) {
+  //   conditions.push(`a.current_tier = $${p}`);
+  //   params.push(tier); p++;
+  // }
   if (specialties) {
     const specs = Array.isArray(specialties) ? specialties : specialties.split(',');
     conditions.push(`a.specialties && $${p}::text[]`);
@@ -52,16 +59,24 @@ const searchAgents = async ({ q, city, province, specialties, languages, min_rat
   };
   const orderBy = sortMap[sort] || sortMap.rating;
 
-  const countSql = `SELECT COUNT(*) FROM agents a ${where}`;
-  const dataSql  = ` SELECT a.id, a.first_name, a.last_name, a.brokerage, a.photo_url,
-           a.avg_rating, a.total_reviews, a.current_tier, a.total_points,
-           a.specialties, a.areas_served, a.languages, a.claimed_at, a.verified_at,
-           a.lead_notifications
-    FROM agents a
+  const countSql = `SELECT COUNT(*) FROM agent_zillow_master a ${where}`;
+  const dataSql  = ` SELECT id	,"name"	,company_name	,profile_url,total_reviews,	sales_last_12_months,total_sales_amount,avg_price	,price_range_min,price_range_max,about_heading,about_description,specialization	,
+  team_heading,website_url,linkedin_url,facebook_url,instagram_url,youtube_url,twitter_url,created_at,updated_at,city,email,office_number,license_number,phone_number,claimed_at,total_clients,total_hired,avg_rating,accepting_new_clients,service_areas,awards,source_url,agent_verified,office_address,address	
+  ,units,list,buy,"double",volume,av_dom,av_sale,av_s_a	,at_100_percent	,base_fsa	,user_id,deal_cracked_12_month,goal,brokerage
+    FROM agent_zillow_master a
     ${where}
     ORDER BY ${orderBy}
     LIMIT $${p} OFFSET $${p+1}
   `;
+  // const dataSql  = ` SELECT a.id, a.first_name, a.last_name, a.brokerage, a.photo_url,
+  //          a.avg_rating, a.total_reviews, a.current_tier, a.total_points,
+  //          a.specialties, a.areas_served, a.languages, a.claimed_at, a.verified_at,
+  //          a.lead_notifications
+  //   FROM agents a
+  //   ${where}
+  //   ORDER BY ${orderBy}
+  //   LIMIT $${p} OFFSET $${p+1}
+  // `;
 
   const [countRes, dataRes] = await Promise.all([
     query(countSql, params),
@@ -71,7 +86,50 @@ const searchAgents = async ({ q, city, province, specialties, languages, min_rat
   return { agents: dataRes.rows, total: parseInt(countRes.rows[0].count, 10) };
 };
 
+// ─── Get all data ────────────────────────────────────────────────────────────
 
+const getdata = async () => {
+  // City-wise agent count
+  const { rows: cities } = await query(`
+    SELECT
+      city,
+      COUNT(*) AS agent_count
+    FROM agent_zillow_master
+    WHERE city IS NOT NULL
+      AND TRIM(city) <> ''
+    GROUP BY city
+    ORDER BY agent_count DESC, city ASC
+  `);
+
+  // Total claimed agents
+  const { rows: agents } = await query(`
+    SELECT COUNT(*) AS total_claimed_agents
+    FROM agent_zillow_master
+    WHERE claimed_at IS NOT NULL
+  `);
+
+  // Total reviews of claimed agents
+  const { rows: reviews } = await query(`
+    SELECT COUNT(rzm.id) AS total_reviews
+    FROM reviews_zillow_master rzm
+    INNER JOIN agent_zillow_master azm
+      ON rzm.agent_id = azm.id
+    WHERE azm.claimed_at IS NOT NULL
+  `);
+
+  return {
+    totalCities: cities.length,
+
+    cityWiseAgents: cities.map(city => ({
+      city: city.city,
+      agentCount: Number(city.agent_count)
+    })),
+
+    totalAgents: Number(agents[0].total_claimed_agents),
+
+    totalReviews: Number(reviews[0].total_reviews)
+  };
+};
 
 // ─── Get single agent ─────────────────────────────────────────────────────────
 const getAgentById = async (agentId) => {
@@ -84,6 +142,19 @@ const getAgentById = async (agentId) => {
     [agentId]
   );
   if (!rows.length) throw new ApiError(404, 'Agent not found');
+  return rows[0];
+};
+
+
+// ─── Get contact with agent ─────────────────────────────────────────────────────────
+
+const contact= async (data) => {
+  const { name, email, iam, phone_number, message,agent_id } = data;
+  const { rows } = await query(
+    `INSERT INTO contact (name, email, iam, phone_number, message, agent_id, created_at)
+     VALUES ('${name}', '${email}', '${iam}', '${phone_number}', '${message}', ${agent_id}, NOW())
+     RETURNING *`
+  );
   return rows[0];
 };
 
@@ -941,7 +1012,32 @@ const getAllAgentDetailsService = async (agentId) => {
 
   const { rows } = await query(
     `SELECT 
-      a.*,
+      a. "id",
+   split_part(a."name", ' ', 1) AS "firstName",
+
+CASE
+    WHEN position(' ' IN a."name") > 0
+    THEN substring(a."name" FROM position(' ' IN a."name") + 1)
+    ELSE ''
+END AS "lastName",
+    a."profile_url",
+    a."about_heading",
+    a."about_description",
+    a."specialization",
+    a.language,
+    a."city",
+    a."license_number",
+    a."claimed_at",
+    a."avg_rating",
+    a."accepting_new_clients",
+     COALESCE(
+        ARRAY(
+            SELECT jsonb_array_elements_text(a."service_areas"::jsonb)
+        )
+) AS "service_areas",
+    a."agent_verified",
+    a."user_id",
+    a."brokerage",
       COALESCE(
           jsonb_agg(
               DISTINCT jsonb_build_object(
@@ -960,19 +1056,22 @@ const getAllAgentDetailsService = async (agentId) => {
           ) FILTER (WHERE ap.id IS NOT NULL),
           '[]'
       ) AS properties,
-
-      COALESCE(
-          jsonb_agg(
-              DISTINCT jsonb_build_object(
-                  'reviewer_name', rm.reviewer_name,
-                  'review_title', rm.review_title,
-                  'review_description', rm.review_description,
-                  'rating', rm.rating,
-                  'review_date', rm.review_date
-              )
-          ) FILTER (WHERE rm.id IS NOT NULL),
-          '[]'
-      ) AS reviews,
+  COALESCE(
+    jsonb_agg(
+        DISTINCT jsonb_build_object(
+            'reviewer_name', rm.reviewer_name,
+            'title', split_part(split_part(rm.review_title, ' in ', 1), ' | ', 1),
+            'city', split_part(split_part(rm.review_title, ' | ', 1), ' in ', 2),
+            'review_date', split_part(rm.review_title, ' | ', 2),
+            'review_description', rm.review_description,
+            'rating', rm.rating,
+            'rating_posted_date', rm.rating_posted_date,
+            'is_verified', rm.is_verified,
+            'overall_rating', rm.overall_rating
+        )
+    ) FILTER (WHERE rm.id IS NOT NULL),
+    '[]'
+) AS reviews,
 
       COALESCE(
           jsonb_agg(
@@ -1111,7 +1210,7 @@ const UserInfo = async (userId, payload ) => {
 
 
 module.exports = {
-  searchAgents, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
+  searchAgents,getdata, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
   claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,editClaimAgentByAdmin, getUserInfo
-  ,UserAvatar, UserInfo,ActiveAgent,unclaimAgent,createCustomer
+  ,UserAvatar, UserInfo,ActiveAgent,unclaimAgent,createCustomer,contact
 };

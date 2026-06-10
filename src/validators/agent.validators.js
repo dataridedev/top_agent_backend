@@ -76,6 +76,14 @@ const claimAgentRules = [
   body('verification_code').optional().trim(),
 ];
 
+const contactAgentRules = [
+  body('name').notEmpty().trim().isLength({ max: 100 }).withMessage('Name is required'),
+  body('email').notEmpty().isEmail().normalizeEmail(),
+  body('agent_id').notEmpty().isInt().withMessage('Agent ID is required'),
+  body('iam').notEmpty().trim().isLength({ max: 50 }).withMessage('I am field is required'),
+  body('message').notEmpty().trim().isLength({ max: 500 }).withMessage('Message is required')
+];
+
 module.exports = {
-  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules
+  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules, contactAgentRules
 };
