@@ -16,6 +16,18 @@ const  getalldata = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getallbadges = async (req, res, next) => {
+  try {
+    const badges = await agentService.getallbadges();
+    return res.status(200).json({
+      success: true,
+      data: badges
+    });
+  } catch (err) {
+    next(err);
+  } }
+
+
 const getAgent = async (req, res, next) => {
   try {
     const agent = await agentService.getAgentById(parseInt(req.params.agentId, 10));
@@ -321,4 +333,4 @@ const updateuserinfo = async (req, res, next) => {
 
 
 module.exports = { searchAgents,getalldata, getAgent, createAgent, updateAgent, claimAgent,
-   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent,createCustomer,contactdata};
+   getAgentStats, getAgentReviews,getAllAgent, getAgentDetails,getclaim,userinfo,editUserAvatar ,editClaimAgent,updateuserinfo,unclaimAllAgent,ActiveclaimAgent,getallbadges,createCustomer,contactdata};

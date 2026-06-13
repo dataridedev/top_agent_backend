@@ -84,6 +84,16 @@ const contactAgentRules = [
   body('message').notEmpty().trim().isLength({ max: 500 }).withMessage('Message is required')
 ];
 
+const createBadgesRules = [
+  body('badge_name').notEmpty().trim().isLength({ max: 100 }).withMessage('Badge name is required'),
+  body('badge_description').optional().trim().isLength({ max: 500 }),
+  body('requirements').optional().trim().isLength({ max: 1000 }),
+  // body('badge_icon').optional().trim().isURL().withMessage('Invalid badge icon URL'),
+  body('is_career_badge').optional().isBoolean(),
+  body('verification').optional().trim().isLength({ max: 255 }),
+  body('type').optional().trim().isLength({ max: 50 }),
+];
+
 module.exports = {
-  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules, contactAgentRules
+  createAgentRules, updateAgentRules, searchAgentRules, agentIdParam, claimAgentRules,AllAgentRules,createCustomerRules, contactAgentRules, createBadgesRules
 };

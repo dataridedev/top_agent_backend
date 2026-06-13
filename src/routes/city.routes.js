@@ -75,23 +75,52 @@ router.get(
 
 /**
  * @swagger
- * /cities:
+ * /cities/getcity:
  *   get:
- *     summary: List all cities
- *     tags: [Cities]
+ *     summary: Get city list with search
+ *     tags:
+ *       - Cities
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Search cities by name (e.g. V, Vi, Van)
+ *         example: V
  *     responses:
  *       200:
- *         description: List of cities
+ *         description: List of cities retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 cities:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       city:
+ *                         type: string
+ *                         example: Victoria
+ *       500:
+ *         description: Internal server error
  */
 router.get('/getcity', async (req, res, next) => {
   try {
-    const data = await cityService.city();
+    const data = await cityService.city(req.query);
     success(res, data);
   } catch (err) {
     next(err);
   }
 });
-
 
 /**
  * @swagger

@@ -9,7 +9,7 @@ const signupRules = [
     .matches(/[0-9]/).withMessage('Password must contain at least one number'),
   body('first_name').notEmpty().trim().isLength({ max: 100 }).withMessage('First name is required'),
   body('last_name').notEmpty().trim().isLength({ max: 100 }).withMessage('Last name is required'),
-  body('role').optional().isIn(['consumer', 'agent', 'brokerage']).withMessage('Invalid role'),
+  // body('role').optional().isIn(['consumer', 'agent', 'brokerage']).withMessage('Invalid role'),
 ];
 
 const loginRules = [

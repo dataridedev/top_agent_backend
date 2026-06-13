@@ -255,37 +255,29 @@ const getcityAgents = async (
 };
 
 
-
-
-
-const city = async () => {
+const city = async ({ q = '' }) => {
   try {
-    const { rows } = await query(`
-      SELECT DISTINCT city 
+    const { rows } = await query(
+      `
+      SELECT DISTINCT city
       FROM agent_zillow_master
       WHERE city IS NOT NULL
+        AND city ILIKE $1
       ORDER BY city;
-    `);
+      `,
+      [`%${q}%`]
+    );
 
     return {
       success: true,
       count: rows.length,
       cities: rows
     };
-
   } catch (error) {
     console.error('Error in getcity:', error);
-
-    return {
-      success: false,
-      error: {
-        message: 'Failed to fetch city'
-      }
-    };
+    throw error;
   }
 };
-
-
 
 
 

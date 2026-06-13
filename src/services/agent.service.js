@@ -131,6 +131,16 @@ const getdata = async () => {
   };
 };
 
+// ─── Get all badges ─────────────────────────────────────────────────────────
+ 
+const getallbadges = async () => {
+  const { rows } = await query(`
+    SELECT * FROM badges 
+  `);
+  return rows;
+};
+
+
 // ─── Get single agent ─────────────────────────────────────────────────────────
 const getAgentById = async (agentId) => {
   const { rows } = await query(
@@ -161,54 +171,54 @@ const contact= async (data) => {
 // ─── Create Customer  ────────────────────────────────────────
 
 const createCustomer = async (data) => {
-  const { first_name, last_name, role = 'consumer', city, email, phone_number,usertype,address,property,budget_warranty,finance,selling,agent_specialization,about,purchase} = data;
+  const { property,move_time,city,communicate,selling,agent_specialization,decision,created_at} = data;
      
  
-  const password_hash = await hash(phone_number);
-    let userResult;
-  let CustomerResult;
+  // const password_hash = await hash(phone_number);
+  //   let userResult;
+  // let CustomerResult;
 
-  if(usertype === 'Buying'){
+  // if(usertype === 'Buying'){
 
-     userResult = await query(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,address,usertype)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
-    [email, password_hash, first_name, last_name, role, phone_number, city,address,usertype]
-  );
+  //    userResult = await query(
+  //   `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,address,usertype)
+  //    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
+  //   [email, password_hash, first_name, last_name, role, phone_number, city,address,usertype]
+  // );
 
-  const user_id = userResult.rows[0].id;
+  // const user_id = userResult.rows[0].id;
 
- CustomerResult = await query(
+ let CustomerResult = await query(
     `INSERT INTO customer
-       (property,budget_warranty,finance,city,purchase,agent_specialization,about,user_id,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,Now())
+       (property,move_time,city,communicate,selling,agent_specialization,decision,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,Now())
      RETURNING *`,
-    [property,budget_warranty,finance,city,purchase,agent_specialization,about,user_id]
+    [property,move_time,city,communicate,selling,agent_specialization,decision]
   );
 
-  }else{
+//   }else{
      
-  userResult = await query(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,address,usertype)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
-    [email, password_hash, first_name, last_name, role, phone_number, address, city,usertype]
-  )
+//   userResult = await query(
+//     `INSERT INTO users (email, password_hash, first_name, last_name, role,phone,city,address,usertype)
+//      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, email, first_name, last_name, role`,
+//     [email, password_hash, first_name, last_name, role, phone_number, address, city,usertype]
+//   )
   
-  const user_id = userResult.rows[0].id;
+//   const user_id = userResult.rows[0].id;
 
-CustomerResult= await query(
-    `INSERT INTO customer
-       (property,budget_warranty,finance,city,address,agent_specialization,about,selling,user_id,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,Now())
-     RETURNING *`,
-    [property,budget_warranty,finance,city,address,agent_specialization,about,selling,user_id]
-  );
-  }
+// CustomerResult= await query(
+//     `INSERT INTO customer
+//        (property,budget_warranty,finance,city,address,agent_specialization,about,selling,user_id,created_at)
+//      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,Now())
+//      RETURNING *`,
+//     [property,budget_warranty,finance,city,address,agent_specialization,about,selling,user_id]
+  // );
+  // }
   
  
    return {
   success: true,
-  message: " Customer created successfully",
+  message: "successfully Get response",
   data: CustomerResult.rows[0]
 };
 };
@@ -1212,5 +1222,5 @@ const UserInfo = async (userId, payload ) => {
 module.exports = {
   searchAgents,getdata, getAgentById, createAgent, updateAgent, getAllAgentService, getAllAgentDetailsService,
   claimAgent, getAgentStats, getAgentReviews, recalculateTiers,claim,editClaimAgentByAdmin, getUserInfo
-  ,UserAvatar, UserInfo,ActiveAgent,unclaimAgent,createCustomer,contact
+  ,UserAvatar, UserInfo,ActiveAgent,unclaimAgent,createCustomer,contact,getallbadges
 };

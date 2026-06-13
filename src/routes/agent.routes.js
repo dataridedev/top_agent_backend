@@ -125,6 +125,31 @@ router.get('/',
 router.get('/alldata', ctrl.getalldata);
 
 
+/** * @swagger
+ * /agents/allbadges:
+ *   get:
+ *     summary: Get all badges
+ *    tags: [Agents]
+ *    description: Retrieves a list of all badges available in the system.
+ *    responses:
+ *      200:
+ *      description: List of badges fetched successfully
+ *     content:
+ *      application/json:
+ *      example:
+ *     success: true
+ *    data:
+ *   - id: 1
+ *   badge_name: "Top Performer"
+ *  badge_description: "Awarded to agents with outstanding performance."
+ *  - id: 2
+ *  badge_name: "Customer Favorite"
+ *  badge_description: "Awarded based on customer reviews and ratings."
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/allbadges', ctrl.getallbadges);
+
 /**
  * @swagger
  * /agent/getclaimAgent:
@@ -396,8 +421,6 @@ router.post('/contact',  contactAgentRules,
  */
 router.post(
   '/customer',
-  createCustomerRules,
-  validate,
   ctrl.createCustomer
 );
 

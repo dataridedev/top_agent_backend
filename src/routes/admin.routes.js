@@ -2,10 +2,39 @@
 const router = require('express').Router();
 const { authenticate, authorize } = require('../middleware/auth');
 const { query: dbQuery } = require('../db/pool');
+const { validate } = require('../middleware/validate');
+const {
+  createBadgesRules
+} = require('../validators/agent.validators');
 const { success, paginated } = require('../utils/response');
 const { pagination } = require('../middleware/pagination');
 const { agentService } = require('../services/agent.service');
 const reviewService = require('../services/review.service');
+const ctrl = require('../controllers/admin.controller');
+
+const multer = require('multer');
+
+const upload = multer({
+  fileFilter: function (req, file, done) {
+
+    console.log("UPLOAD FILE:", file);
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp'   // 🔥 add this (important)
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      done(null, true);
+    } else {
+      done(new Error('Only image files are allowed'), false);
+    }
+  }
+});
+
+module.exports = upload;
 
 /**
  * @swagger
@@ -15,7 +44,50 @@ const reviewService = require('../services/review.service');
  */
 
 // All admin routes require admin role
+
+
 router.use(authenticate, authorize('admin'));
+
+/**
+ * @swagger
+ * /admin/createbadges:
+ *   post:
+ *     summary: Create a new badge
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - badge_name
+ *               - badge_icon
+ *             properties:
+ *               badge_name:
+ *                 type: string
+ *               badge_description:
+ *                 type: string
+ *               requirements:
+ *                 type: string
+ *               badge_icon:
+ *                 type: string
+ *                 format: binary
+ *               badge_color:
+ *                 type: string
+ *               is_career_badge:
+ *                 type: boolean
+ *               verification:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Badge created successfully
+ */
+router.post('/createbadges',authenticate, validate,authorize('admin'),upload.single('badge_icon'), createBadgesRules, ctrl.createBadges);
 
 /**
  * @swagger
