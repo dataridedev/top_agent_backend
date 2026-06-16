@@ -287,45 +287,76 @@ components:
           type: boolean
      
 
+    # CustomerCreate:
+    #   type: object
+    #   required: [first_name, last_name, email, phone_number, city, usertype]
+    #   properties:
+    #     first_name:
+    #       type: string
+    #     last_name:
+    #       type: string
+    #     email:
+    #       type: string
+    #       format: email
+    #     phone_number:
+    #       type: string
+    #     role:
+    #       type: string
+    #       default: consumer
+    #     city:
+    #       type: string
+    #     address:
+    #       type: string
+    #     usertype:
+    #       type: string
+    #       enum:
+    #         - Buying
+    #         - Selling
+    #     property:
+    #       type: string
+    #     budget_warranty:
+    #       type: string
+    #     finance:
+    #       type: string
+    #     purchase:
+    #       type: string
+    #     selling:
+    #       type: string
+    #     agent_specialization:
+    #       type: string
+    #     about:
+    #       type: string
+
     CustomerCreate:
       type: object
-      required: [first_name, last_name, email, phone_number, city, usertype]
+      required:
+        - city
       properties:
-        first_name:
-          type: string
-        last_name:
-          type: string
-        email:
-          type: string
-          format: email
-        phone_number:
-          type: string
-        role:
-          type: string
-          default: consumer
-        city:
-          type: string
-        address:
-          type: string
-        usertype:
-          type: string
-          enum:
-            - Buying
-            - Selling
         property:
           type: string
-        budget_warranty:
+          example: Condo
+        move_time:
           type: string
-        finance:
+          example: Within 3 months
+        city:
           type: string
-        purchase:
+          example: Toronto
+        communicate:
           type: string
+          example: Email
         selling:
           type: string
+          example: Residential Property
         agent_specialization:
           type: string
-        about:
+          example: Luxury Homes
+        decision:
           type: string
+          example: Ready to Buy
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-06-16T10:30:00Z"
 
     Review:
       type: object
@@ -1156,6 +1187,201 @@ paths:
                   - Calgary
                 totalAgents: 120
                 totalReviews: 5420
+    
+  /agents/allbadges:
+    get:
+      summary: Get all badges
+      tags:
+        - Agents
+      description: Retrieves a list of all badges available in the system.
+      responses:
+        '200':
+          description: List of badges fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        badge_name:
+                          type: string
+                          example: Top Performer
+                        badge_description:
+                          type: string
+                          example: Awarded to agents with outstanding performance.
+                        requirements:
+                          type: string
+                          example: Complete 100 successful transactions.
+                        badge_icon:
+                          type: string
+                          example: https://example.com/icons/top-performer.png
+                        badge_color:
+                          type: string
+                          example: "#FFD700"
+                        is_career_badge:
+                          type: boolean
+                          example: true
+                        verification:
+                          type: boolean
+                          example: true
+                        type:
+                          type: string
+                          example: performance
+        '500':
+          description: Internal server error
+
+  /agents/contact:
+    post:
+      summary: Contact an agent
+      tags:
+        - Agents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  example: john.doe@example.com
+                iam:
+                  type: string
+                  example: I am a home buyer interested in your services.
+                phone_number:
+                  type: string
+                  example: "9876543210"
+                message:
+                  type: string
+                  example: Hello, I would like to know more about your services. Please contact me.
+              required:
+                - name
+                - email
+                - phone_number
+                - message
+      responses:
+        '200':
+          description: Message sent successfully
+        '400':
+          description: Invalid request data
+        '500':
+          description: Internal server error
+
+  # /agents/customer:
+  #   post:
+  #     tags:
+  #       - Customer
+  #     summary: Create customer profile
+  #     description: Creates a new customer profile and associated user account.
+  #     security:
+  #       - bearerAuth: []
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         application/json:
+  #           schema:
+  #             type: object
+  #             required:
+  #               - first_name
+  #               - last_name
+  #               - email
+  #               - phone_number
+  #               - city
+  #               - usertype
+  #             properties:
+  #               first_name:
+  #                 type: string
+  #                 example: John
+  #               last_name:
+  #                 type: string
+  #                 example: Doe
+  #               email:
+  #                 type: string
+  #                 format: email
+  #                 example: john@example.com
+  #               phone_number:
+  #                 type: string
+  #                 example: "9876543210"
+  #               user_role:
+  #                 type: string
+  #                 example: consumer
+  #               city:
+  #                 type: string
+  #                 example: Toronto
+  #               address:
+  #                 type: string
+  #                 example: 123 Main Street
+  #               usertype:
+  #                 type: string
+  #                 enum:
+  #                   - Buying
+  #                   - Selling
+  #                 example: Buying
+  #               property:
+  #                 type: string
+  #                 example: Condo
+  #               budget_warranty:
+  #                 type: string
+  #                 example: 500000
+  #               move_time:
+  #                 type: string
+  #                 example: Pre-approved
+  #               purchase:
+  #                 type: string
+  #                 example: First Home
+  #               selling:
+  #                 type: string
+  #                 example: Residential Property
+  #               agent_specialization:
+  #                 type: string
+  #                 example: Luxury Homes
+  #               about:
+  #                 type: string
+  #                 example: Looking for a property in downtown area.
+  #     responses:
+  #       '201':
+  #         description: Customer created successfully
+  #         content:
+  #           application/json:
+  #             schema:
+  #               type: object
+  #               properties:
+  #                 success:
+  #                   type: boolean
+  #                   example: true
+  #                 message:
+  #                   type: string
+  #                   example: Customer created successfully
+  #                 data:
+  #                   type: object
+  #       '400':
+  #         description: Validation error
+  #         content:
+  #           application/json:
+  #             schema:
+  #               type: object
+  #               properties:
+  #                 success:
+  #                   type: boolean
+  #                   example: false
+  #                 message:
+  #                   type: string
+  #                   example: Validation error
+  #       '401':
+  #         description: Unauthorized
 
   /agents/customer:
     post:
@@ -1172,62 +1398,34 @@ paths:
             schema:
               type: object
               required:
-                - first_name
-                - last_name
-                - email
-                - phone_number
                 - city
-                - usertype
               properties:
-                first_name:
-                  type: string
-                  example: John
-                last_name:
-                  type: string
-                  example: Doe
-                email:
-                  type: string
-                  format: email
-                  example: john@example.com
-                phone_number:
-                  type: string
-                  example: "9876543210"
-                user_role:
-                  type: string
-                  example: consumer
-                city:
-                  type: string
-                  example: Toronto
-                address:
-                  type: string
-                  example: 123 Main Street
-                usertype:
-                  type: string
-                  enum:
-                    - Buying
-                    - Selling
-                  example: Buying
                 property:
                   type: string
                   example: Condo
-                budget_warranty:
+                move_time:
                   type: string
-                  example: 500000
-                finance:
+                  example: Within 3 months
+                city:
                   type: string
-                  example: Pre-approved
-                purchase:
+                  example: Toronto
+                communicate:
                   type: string
-                  example: First Home
+                  example: Email
                 selling:
                   type: string
                   example: Residential Property
                 agent_specialization:
                   type: string
                   example: Luxury Homes
-                about:
+                decision:
                   type: string
-                  example: Looking for a property in downtown area.
+                  example: Ready to Buy
+                created_at:
+                  type: string
+                  format: date-time
+                  example: "2026-06-16T10:30:00Z"
+
       responses:
         '201':
           description: Customer created successfully
@@ -1246,17 +1444,6 @@ paths:
                     type: object
         '400':
           description: Validation error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Validation error
         '401':
           description: Unauthorized
 
@@ -2639,6 +2826,101 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   # ─── ADMIN ─────────────────────────────────────────────────────────────────
+
+
+  /admin/createbadges:
+    post:
+      summary: Create a new badge
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - badge_name
+                - badge_icon
+              properties:
+                badge_name:
+                  type: string
+                  example: Top Performer
+                badge_description:
+                  type: string
+                  example: Awarded to agents with outstanding performance.
+                requirements:
+                  type: string
+                  example: Complete 100 successful transactions.
+                badge_icon:
+                  type: string
+                  format: binary
+                badge_color:
+                  type: string
+                  example: "#FFD700"
+                is_career_badge:
+                  type: boolean
+                  example: true
+                verification:
+                  type: string
+                  example: verified
+                type:
+                  type: string
+                  example: performance
+      responses:
+        '201':
+          description: Badge created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Badge created successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      badge_name:
+                        type: string
+                        example: Top Performer
+                      badge_description:
+                        type: string
+                        example: Awarded to agents with outstanding performance.
+                      requirements:
+                        type: string
+                        example: Complete 100 successful transactions.
+                      badge_icon:
+                        type: string
+                        example: https://example.com/badges/top-performer.png
+                      badge_color:
+                        type: string
+                        example: "#FFD700"
+                      is_career_badge:
+                        type: boolean
+                        example: true
+                      verification:
+                        type: string
+                        example: verified
+                      type:
+                        type: string
+                        example: performance
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal Server Error
 
   /admin/dashboard:
     get:
